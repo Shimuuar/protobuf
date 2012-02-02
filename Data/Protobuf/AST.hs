@@ -57,7 +57,7 @@ data Field =
 newtype Identifier = Identifier String
 
 -- | Qualified identifier
-data QIdentifier = QIdentifier
+data QIdentifier = QIdentifier [Identifier] Identifier
 
 
 
@@ -93,4 +93,4 @@ data PrimType
   | PBString   -- ^ UTF8 encoded string
   | PBBytes    -- ^ Byte sequence
 
-data Option  = Option Identifier String
+data Option  = Option QIdentifier String
