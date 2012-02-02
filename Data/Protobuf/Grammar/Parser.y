@@ -10,11 +10,6 @@ import Data.Protobuf.AST
 %error     { parseError }
 
 %token
-  -- Literals
-  "int"      { TokInt    $$  }
-  "real"     { TokDouble $$  }
-  "strlit"   { TokString $$  }
-  "ident"    { TokIdent  $$  }
   -- Punctuation
   "{"        { TokBraceOpen  }
   "}"        { TokBraceClose }
@@ -47,6 +42,13 @@ import Data.Protobuf.AST
   "bool"     { TokIdent "bool"     }
   "string"   { TokIdent "string"   }
   "bytes"    { TokIdent "bytes"    }
+  -- Literals
+  "int"      { TokInt    $$  }
+  "real"     { TokDouble $$  }
+  "strlit"   { TokString $$  }
+  "ident"    { TokIdent  $$  }
+
+
 %%
 
 -- Complete protobuf file
@@ -140,6 +142,6 @@ BuiltinType
 {
 
 parseError :: [Token] -> a
-parseError _ = error "Parse error"
+parseError = error . ("ERROR: " ++) . show
 
 }
