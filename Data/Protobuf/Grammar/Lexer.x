@@ -9,13 +9,12 @@ import Data.Ratio
 %wrapper "basic"
 
 $digit = 0-9			-- digits
-$alpha = [a-zA-Z_]	-- alphabetic characters
 
 @decint  = [\-]?[1-9][0-9]*
 @octint  = [\-]?0[0-7]+
 @hexint  = [\-]?0[Xx][0-9a-fA-F]+
 @strlit  = (\"[^\"]*\")|('[^']*\')
-@ident   = $alpha+
+@ident   = [a-zA-Z][a-zA-Z_0-9]+
 @comment = \/\/[^\n]*
 
 tokens :-
