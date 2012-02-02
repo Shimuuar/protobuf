@@ -1,9 +1,9 @@
--- | 
+-- |
 -- Abstract syntax tree for protobuf file
 module Data.Protobuf.AST where
 
 -- | top level declarations
-data Protobuf = 
+data Protobuf =
     Import      String
     -- ^ Import declaration
   | Package     QIdentifier
@@ -16,20 +16,24 @@ data Protobuf =
     -- ^ Enumeration
   | TopOption   Option
     -- ^ Top level option
+  deriving Show
 
 -- | Enumeration declaration
 data EnumDecl = EnumDecl Identifier [EnumField]
+                deriving Show
 
 -- | Enumeration field
-data EnumField 
+data EnumField
   = EnumField  Identifier Integer
   | EnumOption Option
+  deriving Show
 
--- | Message declaration 
+-- | Message declaration
 data Message = Message Identifier [MessageField]
+             deriving Show
 
 -- | Single field in message body. Note that groups are not supported.
-data MessageField 
+data MessageField
   = MessageField Field
     -- ^ Message field
   | MessageEnum EnumDecl
@@ -42,46 +46,49 @@ data MessageField
     -- ^ Tag range for extensions
   | MsgOption Option
     -- ^ Options for message
+  deriving Show
 
 -- | Tag interval for extensions
 data Extension
   = Extension     Int Int
   | ExtensionOpen Int
+  deriving Show
 
 -- | Sinlge field of message
-data Field = 
-  Field Modifier Type Identifier FieldTag [Option]
+data Field = Field Modifier Type Identifier FieldTag [Option]
+           deriving Show
 
 
-          
 ----------------------------------------------------------------
 -- Basic types
 ----------------------------------------------------------------
 
 -- | Identifier
 newtype Identifier = Identifier String
+                   deriving Show
 
 -- | Qualified identifier
 data QIdentifier = QIdentifier [Identifier] Identifier
+                 deriving Show
 
 
-
--- | Field tag 
+-- | Field tag
 newtype FieldTag = FieldTag Integer
-
+                 deriving Show
 
 -- | Modifier for data
 data Modifier = Required
               | Optional
               | Repeated
-
+              deriving Show
 -- | Type of the field
-data Type 
+data Type
   = UserType Identifier
   | BaseType PrimType
+  deriving Show
 
 -- | Primitive types
-data PrimType 
+data PrimType
   = PbDouble   -- ^ Double
   | PbFloat    -- ^ Float
   | PbInt32    -- ^ 32-bit signed integer (inefficient encoding for negative integers)
@@ -97,5 +104,7 @@ data PrimType
   | PbBool     -- ^ Boolean
   | PbString   -- ^ UTF8 encoded string
   | PbBytes    -- ^ Byte sequence
+  deriving Show
 
 data Option  = Option QIdentifier String
+             deriving Show
