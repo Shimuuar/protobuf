@@ -21,13 +21,16 @@ import Data.Protobuf.AST
   ";"        { TokSemicolon  }
   "."        { TokDot        }
   "="        { TokEqual      }
-  -- Reserved words
-  "message"  { TokIdent "message"  }
+  -- Words with special meaning
+  "package"  { TokIdent "package"  }  
   "import"   { TokIdent "import"   }
-  "option"   { TokIdent "option"   }
-  "enum"     { TokIdent "enum"     }
-  "package"  { TokIdent "package"  }
+  "message"  { TokIdent "message"  }
   "extend"   { TokIdent "extend"   }
+  "enum"     { TokIdent "enum"     }
+  "option"   { TokIdent "option"   }
+  "required" { TokIdent "required" }
+  "optional" { TokIdent "optional" }
+  "repeated" { TokIdent "repeated" }
   -- Built-in type names
   "double"   { TokIdent "double"   }
   "float"    { TokIdent "float"    }
@@ -56,27 +59,53 @@ Protobuf
 -- Top level declaration
 Declaration :: { Protobuf }
 Declaration
-  : Message { $1 }
+  : Message { MessageDecl $1 }
   | Import  { $1 }
   | Extend  { $1 }
-  | Enum    { $1 }
+  | Enum    { TopEnum $1 }
   | Package { $1 }
-  | Option  { $1 }
+  | Option  { TopOption $1 }
 
 Import
   : "import" "strlit" ";"     { Import $2 }
+-- Message declaration
 Message
-  : "message" Ident "{" "}" { MessageDecl (Message $2 []) }
+  : "message" Ident "{" MessageFields "}" { Message $2 $4 }
+MessageFields
+  : MessageField               { [$1]    }
+  | MessageField MessageFields { $1 : $2 }
+MessageField
+  : Field     { MessageField $1 }
+  | Enum      { MessageEnum  $1 }
+  | Message   { Nested       $1 }
+    -- FIXME: extend
+    -- FIXME: extension
+  | Option    { MsgOption    $1 }
+Field -- FIXME: field options
+  : Modifier Typename Ident "=" "int" ";" { Field $1 $2 $3 (FieldTag $5) [] }
+Modifier
+  : "required" { Required }
+  | "optional" { Optional }
+  | "repeated" { Repeated }
+
+-- Enumeration
+Enum
+  : "enum" Ident "{" EnumFields "}"   { EnumDecl $2 $4 }
+EnumFields
+  : EnumField            { $1 : [] }
+  | EnumField EnumFields { $1 : $2 }
+EnumField
+  : Option               { EnumOption $1    }
+  | Ident "=" "int" ";"  { EnumField  $1 $3 }
+  
 -- FIXME: option value could be almost anything!
 Option
-  : "option"  QIdent "=" "strlit" { TopOption (Option $2 $4) }
+  : "option"  QIdent "=" "strlit" { Option $2 $4 }
 Package
   : "package" QIdent ";" { Package $2 }
 -- FIXME:
 Extend
-  : "extend"  { Extend }
-Enum
-  : "enum"    { TopEnum undefined }
+  : "extend"  { Extend  undefined undefined }
 
 
 
@@ -97,9 +126,9 @@ BuiltinType
   | "int32"     { PbInt32    }
   | "int64"     { PbInt64    }
   | "uint32"    { PbUInt32   }
-  | "uint64"    { PbUint64   }
+  | "uint64"    { PbUInt64   }
   | "sint32"    { PbSInt32   }
-  | "sint64"    { PbSint64   }
+  | "sint64"    { PbSInt64   }
   | "fixed32"   { PbFixed32  }
   | "fixed64"   { PbFixed64  }
   | "sfixed32"  { PbSFixed32 }
@@ -107,7 +136,6 @@ BuiltinType
   | "bool"      { PbBool     }
   | "string"    { PbString   }
   | "bytes"     { PbBytes    }
-
   
 {
 

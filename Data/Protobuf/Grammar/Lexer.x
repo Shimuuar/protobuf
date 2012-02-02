@@ -8,14 +8,16 @@ import Data.Ratio
 $digit = 0-9			-- digits
 $alpha = [a-zA-Z]		-- alphabetic characters
 
-@decint = [\-]?[1-9][0-9]*
-@octint = [\-]?0[0-7]+
-@hexint = [\-]?0[Xx][0-9a-fA-F]+
-@strlit = (\"[^\"]*\")|('[^']*\')
-@ident  = $alpha+
+@decint  = [\-]?[1-9][0-9]*
+@octint  = [\-]?0[0-7]+
+@hexint  = [\-]?0[Xx][0-9a-fA-F]+
+@strlit  = (\"[^\"]*\")|('[^']*\')
+@ident   = $alpha+
+@comment = \/\/[^\n]*
 
 tokens :-
-  $white+				;
+  $white+               ;
+  @comment              ;
   @decint               { TokInt . read       }
   @octint               { error "OCTAL"       }
   @hexint               { error "HEX"         }
