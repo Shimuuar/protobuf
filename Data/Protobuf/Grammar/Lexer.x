@@ -1,12 +1,15 @@
 {
-module Data.Protobuf.Grammar.Lexer where
+module Data.Protobuf.Grammar.Lexer (
+    Token(..)
+  , alexScanTokens
+  ) where
 
 import Data.Ratio
 }
 %wrapper "basic"
 
 $digit = 0-9			-- digits
-$alpha = [a-zA-Z]		-- alphabetic characters
+$alpha = [a-zA-Z_]	-- alphabetic characters
 
 @decint  = [\-]?[1-9][0-9]*
 @octint  = [\-]?0[0-7]+
@@ -43,6 +46,9 @@ data Token
   | TokDot                      --  .
   deriving Show
 
+-- Remove quotations in the string literals
+-- FIXME: implement
 unquote :: String -> String
 unquote = id
+
 }
