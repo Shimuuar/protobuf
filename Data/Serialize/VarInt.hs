@@ -23,3 +23,8 @@ getVarWord = do
         then return $! (w `shiftL` n) .|. b
         else loop (n+7) (((w .&. 0x7f) `shiftL` n) .|. b)
 
+putVarWord :: (Bits a, Integral a) => a -> Put
+putVarWord n
+  | testBit n 7 = putWord8 $ fromIntegral n
+  | otherwise   = do putWord8 $ 0xf0 .|. fromIntegral (0x7f .&. n)
+                     putVarWord (n `shiftL` 7)
