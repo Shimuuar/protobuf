@@ -1,5 +1,7 @@
 {
-module Data.Protobuf.Grammar.Parser where
+module Data.Protobuf.Grammar.Parser (
+  parseProtobuf
+  ) where
 
 import Data.Protobuf.Grammar.Lexer
 import Data.Protobuf.AST
