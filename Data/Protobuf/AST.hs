@@ -1,6 +1,11 @@
+{-# LANGUAGE DeriveDataTypeable #-}
 -- |
 -- Abstract syntax tree for protobuf file
 module Data.Protobuf.AST where
+
+import Data.Data
+
+
 
 -- | top level declarations
 data Protobuf =
@@ -16,21 +21,21 @@ data Protobuf =
     -- ^ Enumeration
   | TopOption   Option
     -- ^ Top level option
-  deriving Show
+  deriving (Show,Typeable,Data)
 
 -- | Enumeration declaration
 data EnumDecl = EnumDecl Identifier [EnumField]
-                deriving Show
+                deriving (Show,Typeable,Data)
 
 -- | Enumeration field
 data EnumField
   = EnumField  Identifier Integer
   | EnumOption Option
-  deriving Show
+  deriving (Show,Typeable,Data)
 
 -- | Message declaration
 data Message = Message Identifier [MessageField]
-             deriving Show
+             deriving (Show,Typeable,Data)
 
 -- | Single field in message body. Note that groups are not supported.
 data MessageField
@@ -46,17 +51,17 @@ data MessageField
     -- ^ Tag range for extensions
   | MsgOption Option
     -- ^ Options for message
-  deriving Show
+  deriving (Show,Typeable,Data)
 
 -- | Tag interval for extensions
 data Extension
   = Extension     Int Int
   | ExtensionOpen Int
-  deriving Show
+  deriving (Show,Typeable,Data)
 
 -- | Sinlge field of message
 data Field = Field Modifier Type Identifier FieldTag [Option]
-           deriving Show
+           deriving (Show,Typeable,Data)
 
 
 ----------------------------------------------------------------
@@ -65,29 +70,29 @@ data Field = Field Modifier Type Identifier FieldTag [Option]
 
 -- | Simple unqualified identifier.
 newtype Identifier = Identifier String
-                   deriving Show
+                   deriving (Show,Typeable,Data)
 
 -- | General form of identifier
 data QIdentifier 
   = QualId     [Identifier] Identifier -- ^ Qualified identifier
   | FullQualId [Identifier] Identifier -- ^ Fully qualified identifier
-  deriving Show
+  deriving (Show,Typeable,Data)
 
 
 -- | Field tag
 newtype FieldTag = FieldTag Integer
-                 deriving Show
+                 deriving (Show,Typeable,Data)
 
 -- | Modifier for data
 data Modifier = Required
               | Optional
               | Repeated
-              deriving Show
+              deriving (Show,Typeable,Data)
 -- | Type of the field
 data Type
   = UserType QIdentifier
   | BaseType PrimType
-  deriving Show
+  deriving (Show,Typeable,Data)
 
 -- | Primitive types
 data PrimType
@@ -106,7 +111,7 @@ data PrimType
   | PbBool     -- ^ Boolean
   | PbString   -- ^ UTF8 encoded string
   | PbBytes    -- ^ Byte sequence
-  deriving Show
+  deriving (Show,Typeable,Data)
 
 data Option  = Option QIdentifier String
-             deriving Show
+             deriving (Show,Typeable,Data)
