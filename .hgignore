@@ -1,1 +1,4 @@
 dist
+Data/Protobuf/Grammar/Lexer.hs
+Data/Protobuf/Grammar/Parser.hs
+Data/Protobuf/Grammar/Parser.info

@@ -31,9 +31,9 @@ readProtobuf = foldM addFile mempty . map ExactPath
 
 -- | Find canonicalized path for import
 findImport :: String -> PbMonad FilePath
-findImport nm = search . includePaths =<< ask
+findImport nm = search . includePaths =<< askContext
   where
-    search []     = fail "Import is not found!"
+    search []     = fail $ "Import '" ++ nm ++ "' is not found!"
     search (d:ds) = do
       let name = d ++ "/" ++ nm ++ ".proto"
       exist <- liftIO $ doesFileExist name 
