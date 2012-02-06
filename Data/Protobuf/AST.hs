@@ -63,13 +63,15 @@ data Field = Field Modifier Type Identifier FieldTag [Option]
 -- Basic types
 ----------------------------------------------------------------
 
--- | Identifier
+-- | Simple unqualified identifier.
 newtype Identifier = Identifier String
                    deriving Show
 
--- | Qualified identifier
-data QIdentifier = QIdentifier [Identifier] Identifier
-                 deriving Show
+-- | General form of identifier
+data QIdentifier 
+  = QualId     [Identifier] Identifier -- ^ Qualified identifier
+  | FullQualId [Identifier] Identifier -- ^ Fully qualified identifier
+  deriving Show
 
 
 -- | Field tag
@@ -83,7 +85,7 @@ data Modifier = Required
               deriving Show
 -- | Type of the field
 data Type
-  = UserType Identifier
+  = UserType QIdentifier
   | BaseType PrimType
   deriving Show
 

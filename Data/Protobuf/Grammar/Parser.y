@@ -102,26 +102,40 @@ EnumField
   
 -- FIXME: option value could be almost anything!
 Option
-  : "option"  QIdent "=" "strlit" { Option $2 $4 }
+  : "option"  FullQualId "=" "strlit" { Option $2 $4 }
 Package
-  : "package" QIdent ";" { Package $2 }
+  : "package" PackageId ";" { Package $2 }
 -- FIXME:
 Extend
   : "extend"  { Extend  undefined undefined }
 
 
 
--- Identifiers
+-- Identifier
 Ident
   : "ident"          { Identifier $1 }
+-- Identifier which could be fully qualified
+FullQualId
+  : "." PackageId    { case $2 of 
+                         QualId q n -> FullQualId q n 
+                         _          -> error "Impossible happened: FullQualId"
+                     }
+  | PackageId        { $1 }
+-- Identifier which couldn't be full qualified
+PackageId
+  : QIdent           { case $1 of
+                         [] -> error "Impossible happened: PackageId" 
+                         xs -> QualId (init xs) (last xs)
+                     }
+-- Worker for qulified identifiers
 QIdent 
-  : Ident            { QIdentifier [] $1 }
-  | QIdent "." Ident { case $1 of { QIdentifier is i -> QIdentifier (i:is) $3 } }
+  : Ident            { [$1] }
+  | Ident "." QIdent { $1 : $3 }
 
 -- Type declarations
 Typename
   : BuiltinType { BaseType $1 }
-  | Ident       { UserType $1 }
+  | FullQualId  { UserType $1 }
 BuiltinType
   : "double"    { PbDouble   }
   | "float"     { PbFloat    }
