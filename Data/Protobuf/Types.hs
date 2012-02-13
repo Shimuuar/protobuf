@@ -40,7 +40,7 @@ data PbFile a = PbFile [Protobuf] a
 data Namespace 
   = PackageName  Identifier  Namespace
   | TopLevel     (Set SomeName)
-
+  deriving (Show)
 
 -- | Single name in a set
 data SomeName
@@ -48,6 +48,7 @@ data SomeName
   | FieldName Identifier
   | EnumName  Identifier
   | EnumElem  Identifier
+  deriving (Show)
 
 nameToId :: SomeName -> Identifier
 nameToId (MsgName   n _) = n

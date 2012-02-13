@@ -70,7 +70,9 @@ data Field = Field Modifier Type Identifier FieldTag [Option]
 
 -- | Simple unqualified identifier.
 newtype Identifier = Identifier { identifier :: String }
-                   deriving (Show,Typeable,Data,Eq,Ord)
+                   deriving (Typeable,Data,Eq,Ord)
+instance Show Identifier where
+  show = show . identifier
 
 -- | General form of identifier
 data QIdentifier 
