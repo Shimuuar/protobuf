@@ -14,7 +14,7 @@ $digit = 0-9			-- digits
 @octint  = [\-]?0[0-7]+
 @hexint  = [\-]?0[Xx][0-9a-fA-F]+
 @strlit  = (\"[^\"]*\")|('[^']*\')
-@ident   = [a-zA-Z][a-zA-Z_0-9]+
+@ident   = [a-zA-Z][a-zA-Z_0-9]*
 @comment = \/\/[^\n]*
 
 tokens :-

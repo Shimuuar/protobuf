@@ -76,7 +76,7 @@ Import
 Message
   : "message" Ident "{" MessageFields "}" { Message $2 $4 }
 MessageFields
-  : MessageField               { [$1]    }
+  : {- empty -}                { []      }
   | MessageField MessageFields { $1 : $2 }
 MessageField
   : Field     { MessageField $1 }
