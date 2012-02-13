@@ -1,3 +1,4 @@
+{-# LANGUAGE RecordWildCards #-}
 -- | Reading of protobuf files
 module Data.Protobuf.FileIO (
     readProtobuf
@@ -7,6 +8,7 @@ import Control.Applicative
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Reader
+import Control.Monad.Trans.Error
 
 import Data.Monoid
 import qualified Data.Map as Map
@@ -21,41 +23,55 @@ import Data.Protobuf.Grammar.Lexer
 
 
 
--- | Path to file
-data PbPath = ExactPath  FilePath -- ^ Exact path
-            | SearchPath FilePath -- ^ Should be searched in the include dirs
+-- Path to file
+data PbPath = ExactPath  FilePath -- Exact path
+            | SearchPath FilePath -- Should be searched in the include dirs
+
 
 -- | Read all files and load imports
-readProtobuf :: [String] -> PbMonad FileMap
-readProtobuf = foldM addFile mempty . map ExactPath
+readProtobuf :: [FilePath] -> PbMonad (Bundle ())
+readProtobuf =
+  foldM addFile (Bundle mempty mempty) . map ExactPath
 
--- | Find canonicalized path for import
+-- Add file to bundle
+addFile :: (Bundle ()) -> PbPath -> PbMonad (Bundle ())
+addFile b (ExactPath nm) = do
+  addAbsolutePath b =<< liftIO (canonicalizePath nm)
+addFile b@(Bundle{..}) (SearchPath nm)
+  -- This import already loaded
+  | nm `Map.member` importMap = return b
+  -- Try to find it and store in the mapping
+  | otherwise = do
+      path <- findImport nm
+      addAbsolutePath
+        b { importMap = Map.insert nm path importMap }
+        path
+
+-- Find canonicalized path for import
 findImport :: String -> PbMonad FilePath
 findImport nm = search . includePaths =<< askContext
   where
-    search []     = fail $ "Import '" ++ nm ++ "' is not found!"
+    search []     = throwError $ "Import '" ++ nm ++ "' is not found!"
     search (d:ds) = do
-      let name = d ++ "/" ++ nm ++ ".proto"
-      exist <- liftIO $ doesFileExist name 
+      let name = d ++ "/" ++ nm
+      exist <- liftIO $ doesFileExist name
       if exist
         then liftIO $ canonicalizePath name
         else search ds
-  
--- | Read PB file from disk
-readPbFile :: FilePath -> IO [Protobuf]
-readPbFile nm = do
-  (parseProtobuf . alexScanTokens) <$> readFile nm
 
--- | Add file to file map
-addFile impMap (ExactPath nm) = do
-  addAbsolutePath impMap =<< liftIO (canonicalizePath nm)
-addFile impMap (SearchPath nm) = do
-  addAbsolutePath impMap =<< findImport nm
-
--- | Add file to map using absolute path
-addAbsolutePath impMap name
-  | name `Map.member` impMap = return impMap
-  | otherwise                = do 
+-- Add file to map using absolute path
+addAbsolutePath :: (Bundle ()) -> FilePath -> PbMonad (Bundle ())
+addAbsolutePath b@(Bundle{..}) name
+  -- File is already loaded
+  | name `Map.member` importMap = return b
+  -- Read file
+  | otherwise                   = do
       pb <- liftIO $ readPbFile name
-      foldM addFile (Map.insert name pb impMap) [SearchPath i | Import i <- pb]
+      foldM addFile
+        b { packageMap = Map.insert name (PbFile pb ()) packageMap }
+        [SearchPath i | Import i <- pb]
 
+-- Read PB file from disk
+readPbFile :: FilePath -> IO [Protobuf]
+readPbFile nm =
+  (parseProtobuf . alexScanTokens) <$> readFile nm
