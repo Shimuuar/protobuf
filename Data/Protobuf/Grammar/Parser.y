@@ -106,7 +106,7 @@ EnumField
 Option
   : "option"  FullQualId "=" "strlit" { Option $2 $4 }
 Package
-  : "package" PackageId ";" { Package $2 }
+  : "package" QIdent ";" { Package $2 }
 -- FIXME:
 Extend
   : "extend"  { Extend  undefined undefined }
@@ -118,13 +118,13 @@ Ident
   : "ident"          { Identifier $1 }
 -- Identifier which could be fully qualified
 FullQualId
-  : "." PackageId    { case $2 of 
+  : "." QualifiedId  { case $2 of 
                          QualId q n -> FullQualId q n 
                          _          -> error "Impossible happened: FullQualId"
                      }
-  | PackageId        { $1 }
+  | QualifiedId      { $1 }
 -- Identifier which couldn't be full qualified
-PackageId
+QualifiedId
   : QIdent           { case $1 of
                          [] -> error "Impossible happened: PackageId" 
                          xs -> QualId (init xs) (last xs)

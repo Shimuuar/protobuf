@@ -11,7 +11,7 @@ import Data.Data
 data Protobuf =
     Import      String
     -- ^ Import declaration
-  | Package     QIdentifier
+  | Package     [Identifier]
     -- ^ Specify package for module
   | MessageDecl Message
     -- ^ Message type
@@ -69,8 +69,8 @@ data Field = Field Modifier Type Identifier FieldTag [Option]
 ----------------------------------------------------------------
 
 -- | Simple unqualified identifier.
-newtype Identifier = Identifier String
-                   deriving (Show,Typeable,Data)
+newtype Identifier = Identifier { identifier :: String }
+                   deriving (Show,Typeable,Data,Eq,Ord)
 
 -- | General form of identifier
 data QIdentifier 
