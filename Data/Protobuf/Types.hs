@@ -1,18 +1,37 @@
 {-# LANGUAGE DeriveFunctor #-}
 -- | Data types for transformations
-module Data.Protobuf.Types where
-  --   PbMonad
-  -- , askContext
-  -- , PbContext(..)
-  -- , FileMap
-  -- ) where
+module Data.Protobuf.Types (
+    -- * 
+    Bundle(..)
+  , PbFile(..)
+    -- *
+  , Qualified(..)
+  , addQualifier
+  , SomeName(..)
+  , Namespace
+  , emptyNamespace
+  , findName
+  , findQualName
+  , insertName
+  , mergeNamespaces
+    -- *
+  , PbMonad
+  , PbMonadE
+  , collectErrors
+  , askContext
+  , PbContext(..)
+  ) where
 
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Writer
 import Control.Monad.Trans.Error
 
-import Data.Map   (Map)
+import Data.Functor
+import qualified Data.Map      as Map
+import           Data.Map        (Map)
+import qualified Data.Foldable as F
+
 import Data.Set   (Set)
 import Data.Ord
 import Data.Function
@@ -36,22 +55,70 @@ data Bundle a = Bundle
 data PbFile a = PbFile [Protobuf] a
                 deriving Functor
 
--- | Package namespace. Either a package namespace or 
-data Namespace 
-  = PackageName  Identifier  Namespace
-  | TopLevel     (Set SomeName)
-  deriving (Show)
+
+
+----------------------------------------------------------------
+-- Namespace management
+----------------------------------------------------------------
+
+-- | Qualified name
+data Qualified a = Qualified [Identifier] a
+
+addQualifier :: Identifier -> Qualified a -> Qualified a
+addQualifier q (Qualified qs x) = Qualified (q:qs) x
 
 -- | Single name in a set
 data SomeName
-  = MsgName   Identifier (Set SomeName)
+  = MsgName   Identifier Namespace
+  | PkgName   Identifier Namespace
   | FieldName Identifier
   | EnumName  Identifier
   | EnumElem  Identifier
   deriving (Show)
 
+-- | Namespace
+newtype Namespace = Namespace (Map Identifier SomeName)
+                    deriving Show
+
+-- | Empty namespace
+emptyNamespace :: Namespace
+emptyNamespace = Namespace Map.empty
+
+-- | Find name in namespace
+findName :: Namespace -> Identifier -> Maybe SomeName
+findName (Namespace ns) n = Map.lookup n ns
+
+-- | Find 
+findQualName :: Namespace -> Qualified Identifier -> Maybe (Qualified SomeName)
+findQualName names (Qualified [] n)
+  = Qualified [] <$> findName names n
+findQualName names (Qualified (q:qs) n) = do
+  nest <- findName names q
+  case nest of
+    MsgName _ ns -> addQualifier q <$> findQualName ns (Qualified qs n)
+    PkgName _ ns -> addQualifier q <$> findQualName ns (Qualified qs n)
+    _            -> Nothing
+
+-- | Insert name into set while checking for duplicates
+insertName :: Namespace -> SomeName -> PbMonadE (Namespace)
+insertName (Namespace ns) name
+  | n `Map.member` ns = do oops $ "Duplicate name: " ++ identifier n
+                           return (Namespace ns)
+  | otherwise         = return $ Namespace $ Map.insert n name ns
+  where
+    n = nameToId name
+
+-- | Merge namespaces and collect error during that
+mergeNamespaces :: Namespace -> Namespace -> PbMonadE Namespace
+mergeNamespaces namespace (Namespace ns2)
+  = F.foldlM insertName namespace ns2
+
+
+
+
 nameToId :: SomeName -> Identifier
 nameToId (MsgName   n _) = n
+nameToId (PkgName   n _) = n
 nameToId (FieldName n  ) = n
 nameToId (EnumName  n  ) = n
 nameToId (EnumElem  n  ) = n
