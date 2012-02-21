@@ -64,14 +64,14 @@ buildNamespaceWorker :: [Protobuf] -> PbMonad Namespace
 buildNamespaceWorker pb = do
   names <- collectErrors $ workerPackageNames pb
   case [ p | Package p <- pb ] of
-    []      -> return $ TopLevel names
-    [ qid ] -> return $ foldr PackageName (TopLevel names) qid
+    []      -> return $ names
+    [ qid ] -> return $ foldr packageNamespace names qid
     _       -> throwError "Multiple package declaration"
 
 
 -- Collect top level names
-workerPackageNames :: [Protobuf] -> PbMonadE (Set SomeName)
-workerPackageNames = foldM collect mempty
+workerPackageNames :: [Protobuf] -> PbMonadE Namespace
+workerPackageNames = foldM collect emptyNamespace
   where
     collect s (MessageDecl m) = workerMessageNames s m
     collect s (TopEnum     e) = workerEnumNames    s e
@@ -79,35 +79,25 @@ workerPackageNames = foldM collect mempty
 
 
 -- Collect Enum names
-workerEnumNames :: Set SomeName -> EnumDecl -> PbMonadE (Set SomeName)
+workerEnumNames :: Namespace -> EnumDecl -> PbMonadE Namespace
 workerEnumNames set (EnumDecl nm flds) =
   flip insertName (EnumName nm)
     =<< foldM insertName set [EnumElem n | EnumField n _ <- flds]
 
 
 -- Collect names in message
-workerMessageNames :: Set SomeName -> Message -> PbMonadE (Set SomeName)
+workerMessageNames :: Namespace -> Message -> PbMonadE Namespace
 workerMessageNames set (Message nm flds) = do
   let insertMsg s (MessageField (Field _ _ n _ _)) = insertName s (FieldName n)
       insertMsg s (MessageEnum  e) = workerEnumNames    s e
       insertMsg s (Nested       m) = workerMessageNames s m
       insertMsg s _                = return s
-  insertName set . MsgName nm =<< foldM insertMsg mempty flds
+  insertName set . MsgName nm =<< foldM insertMsg emptyNamespace flds
 
 
--- Insert name into set while checking for duplicates
-insertName :: Set SomeName -> SomeName -> PbMonadE (Set SomeName)
-insertName set n
-  | n `Set.member` set = do oops $ "Duplicate name: " ++ identifier (nameToId n)
-                            return set
-  | otherwise          = return $ Set.insert n set
 
 
 
 ----------------------------------------------------------------
 -- Resolve names
 ----------------------------------------------------------------
-
--- Name resolution. Resolve all type names so they all are fully
--- qualified
--- resolveNamesWorker :: Bundle -> [Protobuf] ->

@@ -9,6 +9,7 @@ module Data.Protobuf.Types (
   , addQualifier
   , SomeName(..)
   , Namespace
+  , packageNamespace
   , emptyNamespace
   , findName
   , findQualName
@@ -83,6 +84,10 @@ newtype Namespace = Namespace (Map Identifier SomeName)
 -- | Empty namespace
 emptyNamespace :: Namespace
 emptyNamespace = Namespace Map.empty
+
+packageNamespace :: Identifier -> Namespace -> Namespace
+packageNamespace pkg ns = 
+  Namespace $ Map.singleton pkg (PkgName pkg ns)
 
 -- | Find name in namespace
 findName :: Namespace -> Identifier -> Maybe SomeName
