@@ -45,13 +45,17 @@ import Data.Protobuf.AST
 -- Auxillary data types & synonims
 ----------------------------------------------------------------
 
--- | Set of all protobuf files
+-- | Set of all protobuf files to be processed
 data Bundle a = Bundle
-  { importMap  :: Map String FilePath
+  { processedFiles :: [FilePath]
+    -- ^ Files to be processed
+  , importMap  :: Map String FilePath
     -- ^ Maps import strings to the pathes in the file system
   , packageMap :: Map FilePath (PbFile a)
     -- ^ Map file pathes to packages.
   }
+  deriving (Functor)
+
 
 -- | Protobuf file data
 data PbFile a = PbFile [Protobuf] a

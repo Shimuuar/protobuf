@@ -31,12 +31,14 @@ data PbPath = ExactPath  FilePath -- Exact path
 -- | Read all files and load imports
 readProtobuf :: [FilePath] -> PbMonad (Bundle ())
 readProtobuf =
-  foldM addFile (Bundle mempty mempty) . map ExactPath
+  foldM addFile (Bundle [] mempty mempty) . map ExactPath
 
 -- Add file to bundle
 addFile :: (Bundle ()) -> PbPath -> PbMonad (Bundle ())
 addFile b (ExactPath nm) = do
-  addAbsolutePath b =<< liftIO (canonicalizePath nm)
+  fname <- liftIO (canonicalizePath nm)
+  b'    <- addAbsolutePath b fname
+  return $ b' { processedFiles = fname : processedFiles b' }
 addFile b@(Bundle{..}) (SearchPath nm)
   -- This import already loaded
   | nm `Map.member` importMap = return b
