@@ -5,17 +5,20 @@ module Data.Protobuf.AST where
 
 import Data.Data
 
-
+-- | Protocol buffer file. 
+--   Parameter 'n' stands for namespace type. Since new namespaces are introduced in file 
+data ProtobufFile n
+  = ProtobufFile [Protobuf n] [Identifier] n
 
 -- | top level declarations
-data Protobuf =
+data Protobuf n =
     Import      String
     -- ^ Import declaration
   | Package     [Identifier]
     -- ^ Specify package for module
-  | MessageDecl Message
+  | TopMessage  (Message n)
     -- ^ Message type
-  | Extend      QIdentifier [MessageField]
+  | Extend      QIdentifier [MessageField n]
     -- ^ Extend message. NOT IMPLEMENTED
   | TopEnum     EnumDecl
     -- ^ Enumeration
@@ -34,16 +37,16 @@ data EnumField
   deriving (Show,Typeable,Data)
 
 -- | Message declaration
-data Message = Message Identifier [MessageField]
-             deriving (Show,Typeable,Data)
+data Message n = Message Identifier [MessageField n] n
+                 deriving (Show,Typeable,Data)
 
 -- | Single field in message body. Note that groups are not supported.
-data MessageField
+data MessageField n
   = MessageField Field
     -- ^ Message field
   | MessageEnum EnumDecl
     -- ^ Enumeration declaration
-  | Nested Message
+  | Nested (Message n)
     -- ^ Nested message
   | MsgExtend -- FIXME
     -- ^ Extend other type
@@ -67,6 +70,17 @@ data Field = Field Modifier Type Identifier FieldTag [Option]
 ----------------------------------------------------------------
 -- Basic types
 ----------------------------------------------------------------
+
+-- | Qualified name
+data Qualified a = Qualified [Identifier] a
+                   deriving (Show,Eq,Ord)
+
+addQualifier :: Identifier -> Qualified a -> Qualified a
+addQualifier q (Qualified qs x) = Qualified (q:qs) x
+
+addQualList :: [Identifier] -> Qualified a -> Qualified a
+addQualList q (Qualified qs x) = Qualified (q ++ qs) x
+
 
 -- | Simple unqualified identifier.
 newtype Identifier = Identifier { identifier :: String }

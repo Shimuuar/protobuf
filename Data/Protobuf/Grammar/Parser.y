@@ -7,7 +7,7 @@ import Data.Protobuf.Grammar.Lexer
 import Data.Protobuf.AST
 }
 
-%name      parseProtobuf
+%name      parseProtobuf Protobuf
 %tokentype { Token }
 %error     { parseError }
 
@@ -53,17 +53,18 @@ import Data.Protobuf.AST
 
 %%
 
+Protobuf :: { ProtobufFile () }
+  : ProtobufDecls       { ProtobufFile $1 [] () }
+
 -- Complete protobuf file
-Protobuf :: { [Protobuf] }
-Protobuf 
-  : {- empty -}          { [] }
-  | Declaration Protobuf { $1 : $2 }
-  | ";"         Protobuf { $2 }
+ProtobufDecls
+  : {- empty -}               { [] }
+  | Declaration ProtobufDecls { $1 : $2 }
+  | ";"         ProtobufDecls { $2 }
 
 -- Top level declaration
-Declaration :: { Protobuf }
 Declaration
-  : Message { MessageDecl $1 }
+  : Message { TopMessage $1 }
   | Import  { $1 }
   | Extend  { $1 }
   | Enum    { TopEnum $1 }
@@ -74,7 +75,7 @@ Import
   : "import" "strlit" ";"     { Import $2 }
 -- Message declaration
 Message
-  : "message" Ident "{" MessageFields "}" { Message $2 $4 }
+  : "message" Ident "{" MessageFields "}" { Message $2 $4 () }
 MessageFields
   : {- empty -}                { []      }
   | MessageField MessageFields { $1 : $2 }

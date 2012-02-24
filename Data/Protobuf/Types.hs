@@ -68,15 +68,6 @@ data PbFile a = PbFile [Protobuf] a
 -- Namespace management
 ----------------------------------------------------------------
 
--- | Qualified name
-data Qualified a = Qualified [Identifier] a
-                   deriving (Show,Eq,Ord)
-
-addQualifier :: Identifier -> Qualified a -> Qualified a
-addQualifier q (Qualified qs x) = Qualified (q:qs) x
-
-addQualList :: [Identifier] -> Qualified a -> Qualified a
-addQualList q (Qualified qs x) = Qualified (q ++ qs) x
 
 -- | Single name in a set
 data SomeName
