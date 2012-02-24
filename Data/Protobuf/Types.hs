@@ -7,6 +7,7 @@ module Data.Protobuf.Types (
     -- *
   , Qualified(..)
   , addQualifier
+  , addQualList
   , SomeName(..)
   , Namespace
   , packageNamespace
@@ -69,9 +70,13 @@ data PbFile a = PbFile [Protobuf] a
 
 -- | Qualified name
 data Qualified a = Qualified [Identifier] a
+                   deriving (Show,Eq,Ord)
 
 addQualifier :: Identifier -> Qualified a -> Qualified a
 addQualifier q (Qualified qs x) = Qualified (q:qs) x
+
+addQualList :: [Identifier] -> Qualified a -> Qualified a
+addQualList q (Qualified qs x) = Qualified (q ++ qs) x
 
 -- | Single name in a set
 data SomeName
@@ -81,6 +86,10 @@ data SomeName
   | EnumName  Identifier
   | EnumElem  Identifier
   deriving (Show)
+
+
+
+----------------------------------------
 
 -- | Namespace
 newtype Namespace = Namespace (Map Identifier SomeName)
