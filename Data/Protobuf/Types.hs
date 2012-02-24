@@ -18,6 +18,7 @@ module Data.Protobuf.Types (
     -- *
   , PbMonad
   , PbMonadE
+  , oops
   , collectErrors
   , askContext
   , PbContext(..)
