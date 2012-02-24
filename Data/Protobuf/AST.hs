@@ -8,7 +8,11 @@ import Data.Data
 -- | Protocol buffer file. 
 --   Parameter 'n' stands for namespace type. Since new namespaces are introduced in file 
 data ProtobufFile n
-  = ProtobufFile [Protobuf n] [Identifier] n
+  = ProtobufFile [Protobuf n] [Identifier] n (Global n)
+
+-- | Newtype wrapper which is used to ditinguish between package
+--   namespace and global namespace
+newtype Global a = Global a
 
 -- | top level declarations
 data Protobuf n =

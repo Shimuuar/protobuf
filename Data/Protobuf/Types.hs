@@ -25,10 +25,10 @@ module Data.Protobuf.Types (
   , PbContext(..)
   ) where
 
-import Control.Monad.Trans.Class
-import Control.Monad.Trans.Reader
-import Control.Monad.Trans.Writer
-import Control.Monad.Trans.Error
+
+import Control.Monad.Reader
+import Control.Monad.Writer
+import Control.Monad.Error
 
 import Data.Functor
 import qualified Data.Map      as Map
@@ -47,20 +47,20 @@ import Data.Protobuf.AST
 ----------------------------------------------------------------
 
 -- | Set of all protobuf files to be processed
-data Bundle a = Bundle
+data Bundle n a = Bundle
   { processedFiles :: [FilePath]
     -- ^ Files to be processed
   , importMap  :: Map String FilePath
     -- ^ Maps import strings to the pathes in the file system
-  , packageMap :: Map FilePath (PbFile a)
+  , packageMap :: Map FilePath (PbFile n a)
     -- ^ Map file pathes to packages.
   }
   deriving (Functor)
 
 
 -- | Protobuf file data
-data PbFile a = PbFile [Protobuf] a
-                deriving Functor
+data PbFile n a = PbFile (ProtobufFile n) a
+                  deriving Functor
 
 
 

@@ -5,8 +5,9 @@ module Data.Protobuf.Transform where
 import Control.Applicative
 import Control.Monad
 import Control.Monad.IO.Class
-import Control.Monad.Trans.Reader
-import Control.Monad.Trans.Error
+import Control.Monad.State
+import Control.Monad.Reader
+import Control.Monad.Error
 
 import qualified Data.Foldable    as F
 import qualified Data.Traversable as T
@@ -25,71 +26,175 @@ import Data.Protobuf.AST
 import Data.Protobuf.Grammar.Parser
 import Data.Protobuf.Grammar.Lexer
 import Data.Protobuf.Types
-import Data.Protobuf.FileIO
+-- import Data.Protobuf.FileIO
 import Data.Protobuf.DataTree
 
 
--- Name resolution
---
--- There are 3 kinds of names which all inhabit same namespace.
---
--- * Message names
---
--- * Enumeration names
---
--- * Enumeration fields
---
--- Message and enums are really same. They are name of types.
---
--- Goals of name resolution are to check that all names are already
--- known and to make all names fully qualified.
+
+----------------------------------------------------------------
+-- Normalization
+----------------------------------------------------------------
+
+-- * Stage 1. Remove package declarations and move package name into
+--   ProtobufFile declaration.
+removePackage :: ProtobufFile a -> PbMonad (ProtobufFile a)
+removePackage (ProtobufFile pb _ a b) = do
+  let (package,rest) = partition isPackage pb
+      isPackage (Package _) = True
+      isPackage _           = False
+  p <- case package of
+         []           -> return []
+         [Package qs] -> return qs
+         _            -> throwError "Multiple package declarations"
+  return $ ProtobufFile rest p a b
+
 
 
 ----------------------------------------------------------------
--- Build namespaces
+
+-- * Stage 2. Build and cache namespaces. During this stage name
+--   collisions are discovered and repored as errors. Package
+--   namespace is added to global namespace.
+buildNamespace :: ProtobufFile a -> PbMonad (ProtobufFile Namespace)
+buildNamespace (ProtobufFile pb qs _ _) =
+  collectErrors $ do
+    (pb',ns) <- runNamespace $ mapM traversePackage pb
+    return $ ProtobufFile pb' qs ns (Global $ foldr packageNamespace ns qs)
+
+
+-- Traverse top level definitions and cache namespaces
+traversePackage :: Protobuf n -> NameBuilder (Protobuf Namespace)
+traversePackage (TopEnum    e) =
+  TopEnum e <$ collectEnumNames e
+traversePackage (TopMessage msg) = do
+  TopMessage <$> collectMessageNames msg
+traversePackage (Import i)    = return $ Import i
+traversePackage (Package _)   = error "Impossible happended"
+traversePackage (Extend _ _)  = throwError "Extensions are not supported"
+traversePackage (TopOption o) = return $ TopOption o
+
+-- Build namespace for message
+collectMessageNames :: Message e -> NameBuilder (Message Namespace)
+collectMessageNames (Message name flds _) = do
+  (fields,names) <- lift $ runNamespace $ mapM collectFieldNames flds
+  addToNamespace (MsgName name names)
+  return $ Message name fields names
+
+
+-- Collect names of fields
+collectFieldNames :: MessageField e -> NameBuilder (MessageField Namespace)
+collectFieldNames (MessageField f@(Field _ _ n _ _)) = 
+  MessageField f <$ addToNamespace (FieldName n)
+collectFieldNames (MessageEnum e) = MessageEnum e <$ collectEnumNames e
+collectFieldNames (Nested m)      = Nested <$> collectMessageNames m
+collectFieldNames  MsgExtend      = return  MsgExtend
+collectFieldNames (Extensions e)  = return (Extensions e)
+collectFieldNames (MsgOption  o)  = return (MsgOption o)
+
+
+-- Collect all names from into namespace
+collectEnumNames :: EnumDecl -> NameBuilder ()
+collectEnumNames (EnumDecl nm flds) = do
+  addToNamespace (EnumName nm)
+  mapM_ addToNamespace [EnumElem n | EnumField n _ <- flds]
+
+
+type NameBuilder = StateT Namespace PbMonadE
+
+runNamespace a = flip runStateT emptyNamespace a
+
+-- Add name into namespace
+addToNamespace :: SomeName -> NameBuilder ()
+addToNamespace n =
+  put =<< lift . flip insertName n =<< get
+
+
 ----------------------------------------------------------------
 
--- Build namespaces.
---
---  * Collects all names defined in module
---  * Check that there are no duplicates
-buildNamespace :: Bundle () -> PbMonad (Bundle Namespace)
-buildNamespace b@(Bundle{..}) = do
-  pkg <- T.mapM (\(PbFile pb _) -> PbFile pb <$> buildNamespaceWorker pb) packageMap
-  return b { packageMap = pkg }
+-- * Stage 3. Resolve imports and put everything into top level
+--   namespace
+resolveImports :: Bundle Namespace qqq -> PbMonad [ProtobufFile Namespace]
+resolveImports b@(Bundle ps imap pmap) =
+  mapM (resolvePkgImport b) 
+  [ x | PbFile x _ <- [ pmap ! n | n <- ps ] ]
+
+resolvePkgImport :: Bundle Namespace qqq -> ProtobufFile Namespace -> PbMonad (ProtobufFile Namespace)
+resolvePkgImport (Bundle _ imap pmap) (ProtobufFile pb quals names (Global ns)) = do
+  let isImport (Import _) = True
+      isImport _          = False
+      (imports,pb') = partition isImport pb
+  global <- collectErrors 
+          $ foldM mergeNamespaces ns 
+          [ foldr packageNamespace pkgNames qs
+          | PbFile (ProtobufFile _ qs pkgNames _) _ <- 
+            [ pmap ! (imap ! i) | Import i <- imports ]
+          ]
+  return $ ProtobufFile pb' quals names (Global global)
 
 
--- Build namespace for loaded module
-buildNamespaceWorker :: [Protobuf] -> PbMonad Namespace
-buildNamespaceWorker pb = do
-  names <- collectErrors $ workerPackageNames pb
-  case [ p | Package p <- pb ] of
-    []      -> return $ names
-    [ qid ] -> return $ foldr packageNamespace names qid
-    _       -> throwError "Multiple package declaration"
+----------------------------------------------------------------
+
+-- * Stage 4. Resolve all names. All type names at this point are
+--   converted into fully qualifie form
+resolveNames :: ProtobufFile Namespace -> PbMonad (ProtobufFile Namespace)
+resolveNames p@(ProtobufFile pb qs names (Global global)) = 
+  collectErrors $ do
+    pb' <- runResolver p $ mapM resolveTopLevel pb
+    return $ ProtobufFile pb' qs names (Global global)
 
 
--- Collect top level names
-workerPackageNames :: [Protobuf] -> PbMonadE Namespace
-workerPackageNames = foldM collect emptyNamespace
-  where
-    collect s (MessageDecl m) = workerMessageNames s m
-    collect s (TopEnum     e) = workerEnumNames    s e
-    collect s _               = return s
+resolveTopLevel :: Protobuf Namespace -> NameResolve (Protobuf Namespace)
+resolveTopLevel (TopMessage m) = TopMessage <$> resolveMessage m
+resolveTopLevel x = return x
+
+resolveMessage :: Message Namespace -> NameResolve (Message Namespace)
+resolveMessage (Message nm fields names) = do
+  f' <- descendName nm names $ mapM resolveField fields
+  return $ Message nm f' names
+
+resolveField :: MessageField Namespace -> NameResolve (MessageField Namespace)
+resolveField (MessageField (Field m (UserType qid) nm tag o)) = do
+  n <- lift . toTypename =<< resolveName qid
+  return $ MessageField (Field m (UserType qid) nm tag o)
+resolveField (Nested m) = do
+  Nested <$> resolveMessage m
+resolveField x = return x
 
 
--- Collect Enum names
-workerEnumNames :: Namespace -> EnumDecl -> PbMonadE Namespace
-workerEnumNames set (EnumDecl nm flds) =
-  flip insertName (EnumName nm)
-    =<< foldM insertName set [EnumElem n | EnumField n _ <- flds]
+data Names = Names Namespace [([Identifier], Namespace)]
 
+type NameResolve = StateT Names PbMonadE
 
--- Collect names in message
-workerMessageNames :: Namespace -> Message -> PbMonadE Namespace
-workerMessageNames set (Message nm flds) = do
-  let insertMsg s (MessageField (Field _ _ n _ _)) = insertName s (FieldName n)
-      insertMsg s (MessageEnum  e) = workerEnumNames    s e
-      insertMsg s (Nested       m) = workerMessageNames s m
-      insertMsg s _                = return s
-  insertName set . MsgName nm =<< foldM insertMsg emptyNamespace flds
+runResolver (ProtobufFile _ qs names (Global global)) = 
+  flip evalStateT (Names global [(qs,names)])
+
+descendName :: Identifier -> Namespace -> NameResolve a -> NameResolve a
+descendName q ns action = do
+  old@(Names global (stack@((qs , _):_))) <- get
+  put $ Names global ((qs ++ [q], ns) : stack)
+  x <- action
+  x <$ put old
+
+toTypename :: Qualified SomeName -> PbMonadE QIdentifier
+toTypename (Qualified qs (MsgName  nm _)) = return $ FullQualId qs nm
+toTypename (Qualified qs (EnumName nm  )) = return $ FullQualId qs nm
+toTypename _ = throwError "Not a type name"
+
+resolveName :: QIdentifier -> NameResolve (Qualified SomeName)
+resolveName qid = do
+  n <- get
+  lift $ resolveNameWorker n qid
+
+resolveNameWorker :: Names -> QIdentifier -> PbMonadE  (Qualified SomeName)
+resolveNameWorker (Names global stack) (FullQualId qs n) =
+  case findQualName global (Qualified qs n) of
+    Just x  -> return x
+    Nothing -> oops "Cannot find name" >> return (error "Impossible")  
+resolveNameWorker (Names global []) (QualId qs n) =
+  case findQualName global (Qualified qs n) of
+    Just x  -> return x
+    Nothing -> oops "Cannot find name" >> return (error "Impossible")  
+resolveNameWorker (Names global ((qs,current):rest)) n@(QualId quals nm) =
+  case findQualName current (Qualified quals nm) of
+    Just x  -> return (addQualList qs x)
+    Nothing -> resolveNameWorker (Names global rest) n

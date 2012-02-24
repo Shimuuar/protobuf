@@ -54,7 +54,7 @@ import Data.Protobuf.AST
 %%
 
 Protobuf :: { ProtobufFile () }
-  : ProtobufDecls       { ProtobufFile $1 [] () }
+  : ProtobufDecls       { ProtobufFile $1 [] () (Global ()) }
 
 -- Complete protobuf file
 ProtobufDecls
