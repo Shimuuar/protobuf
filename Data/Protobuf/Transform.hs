@@ -11,7 +11,7 @@ import Control.Monad.Trans.Error
 import qualified Data.Foldable    as F
 import qualified Data.Traversable as T
 import qualified Data.Map      as Map
-import           Data.Map        (Map)
+import           Data.Map        (Map,(!))
 import qualified Data.Set      as Set
 import           Data.Set        (Set)
 import Data.Data                 (Data)
@@ -26,7 +26,7 @@ import Data.Protobuf.Grammar.Parser
 import Data.Protobuf.Grammar.Lexer
 import Data.Protobuf.Types
 import Data.Protobuf.FileIO
-
+import Data.Protobuf.DataTree
 
 
 -- Name resolution
@@ -93,11 +93,3 @@ workerMessageNames set (Message nm flds) = do
       insertMsg s (Nested       m) = workerMessageNames s m
       insertMsg s _                = return s
   insertName set . MsgName nm =<< foldM insertMsg emptyNamespace flds
-
-
-
-
-
-----------------------------------------------------------------
--- Resolve names
-----------------------------------------------------------------
