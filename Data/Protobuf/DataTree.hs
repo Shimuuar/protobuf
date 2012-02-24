@@ -16,11 +16,11 @@ module Data.Protobuf.DataTree where
 import qualified Data.Map as Map
 import           Data.Map   (Map)
 
-import Data.Protobuf.AST (PrimType(..), FieldTag(..) )
-
+import Data.Protobuf.AST   (PrimType(..), FieldTag(..) )
+import Data.Protobuf.Types (Qualified(..))
 
 -- | complete 
-data DataTree = DataTree (Map String HsModule)
+data DataTree = DataTree (Map (Qualified String) HsModule)
 
 
 -- | Haskell module. It contains single data type which corresponds
