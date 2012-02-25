@@ -113,12 +113,12 @@ addToNamespace n =
 
 -- * Stage 3. Resolve imports and put everything into top level
 --   namespace
-resolveImports :: Bundle Namespace qqq -> PbMonad [ProtobufFile Namespace]
+resolveImports :: Bundle Namespace -> PbMonad [ProtobufFile Namespace]
 resolveImports b@(Bundle ps imap pmap) =
   mapM (resolvePkgImport b) 
-  [ x | PbFile x _ <- [ pmap ! n | n <- ps ] ]
+  [ pmap ! n | n <- ps ]
 
-resolvePkgImport :: Bundle Namespace qqq -> ProtobufFile Namespace -> PbMonad (ProtobufFile Namespace)
+resolvePkgImport :: Bundle Namespace -> ProtobufFile Namespace -> PbMonad (ProtobufFile Namespace)
 resolvePkgImport (Bundle _ imap pmap) (ProtobufFile pb quals names (Global ns)) = do
   let isImport (Import _) = True
       isImport _          = False
@@ -126,8 +126,7 @@ resolvePkgImport (Bundle _ imap pmap) (ProtobufFile pb quals names (Global ns)) 
   global <- collectErrors 
           $ foldM mergeNamespaces ns 
           [ foldr packageNamespace pkgNames qs
-          | PbFile (ProtobufFile _ qs pkgNames _) _ <- 
-            [ pmap ! (imap ! i) | Import i <- imports ]
+          | ProtobufFile _ qs pkgNames _ <- [ pmap ! (imap ! i) | Import i <- imports ]
           ]
   return $ ProtobufFile pb' quals names (Global global)
 

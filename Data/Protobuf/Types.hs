@@ -3,7 +3,6 @@
 module Data.Protobuf.Types (
     -- * 
     Bundle(..)
-  , PbFile(..)
     -- *
   , Qualified(..)
   , addQualifier
@@ -47,20 +46,14 @@ import Data.Protobuf.AST
 ----------------------------------------------------------------
 
 -- | Set of all protobuf files to be processed
-data Bundle n a = Bundle
+data Bundle n = Bundle
   { processedFiles :: [FilePath]
     -- ^ Files to be processed
   , importMap  :: Map String FilePath
     -- ^ Maps import strings to the pathes in the file system
-  , packageMap :: Map FilePath (PbFile n a)
+  , packageMap :: Map FilePath (ProtobufFile n)
     -- ^ Map file pathes to packages.
   }
-  deriving (Functor)
-
-
--- | Protobuf file data
-data PbFile n a = PbFile (ProtobufFile n) a
-                  deriving Functor
 
 
 

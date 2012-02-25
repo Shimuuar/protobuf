@@ -68,12 +68,12 @@ addAbsolutePath b@(Bundle{..}) name
   | name `Map.member` importMap = return b
   -- Read file
   | otherwise                   = do
-      pb <- liftIO $ readPbFile name
+      pb@(ProtobufFile stmts _ _ _)  <- liftIO $ readPbFile name
       foldM addFile
-        b { packageMap = Map.insert name (PbFile pb ()) packageMap }
-        [SearchPath i | Import i <- pb]
+        b { packageMap = Map.insert name pb packageMap }
+        [SearchPath i | Import i <- stmts]
 
 -- Read PB file from disk
-readPbFile :: FilePath -> IO [Protobuf]
+readPbFile :: FilePath -> IO (ProtobufFile ())
 readPbFile nm =
   (parseProtobuf . alexScanTokens) <$> readFile nm
