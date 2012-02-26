@@ -9,10 +9,12 @@ import Data.Data
 --   Parameter 'n' stands for namespace type. Since new namespaces are introduced in file 
 data ProtobufFile n
   = ProtobufFile [Protobuf n] [Identifier] n (Global n)
+    deriving (Show,Typeable,Data)
 
 -- | Newtype wrapper which is used to ditinguish between package
 --   namespace and global namespace
 newtype Global a = Global a
+                 deriving (Show,Typeable,Data)
 
 -- | top level declarations
 data Protobuf n =

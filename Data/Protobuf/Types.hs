@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveFunctor #-}
 -- | Data types for transformations
 module Data.Protobuf.Types (
@@ -16,6 +17,10 @@ module Data.Protobuf.Types (
   , insertName
   , mergeNamespaces
     -- *
+  , Names(..)
+  , resolveName
+  , nameDown
+    -- *
   , PbMonad
   , PbMonadE
   , oops
@@ -29,6 +34,7 @@ import Control.Monad.Reader
 import Control.Monad.Writer
 import Control.Monad.Error
 
+import Data.Data                 (Typeable,Data)
 import Data.Functor
 import qualified Data.Map      as Map
 import           Data.Map        (Map)
@@ -69,7 +75,7 @@ data SomeName
   | FieldName Identifier
   | EnumName  Identifier
   | EnumElem  Identifier
-  deriving (Show)
+  deriving (Show,Typeable,Data)
 
 
 
@@ -77,12 +83,13 @@ data SomeName
 
 -- | Namespace
 newtype Namespace = Namespace (Map Identifier SomeName)
-                    deriving Show
+                  deriving (Show,Typeable,Data)
 
 -- | Empty namespace
 emptyNamespace :: Namespace
 emptyNamespace = Namespace Map.empty
 
+-- | Put namespace into package
 packageNamespace :: Identifier -> Namespace -> Namespace
 packageNamespace pkg ns = 
   Namespace $ Map.singleton pkg (PkgName pkg ns)
@@ -91,7 +98,7 @@ packageNamespace pkg ns =
 findName :: Namespace -> Identifier -> Maybe SomeName
 findName (Namespace ns) n = Map.lookup n ns
 
--- | Find 
+-- | Find qualified name in the namespace
 findQualName :: Namespace -> Qualified Identifier -> Maybe (Qualified SomeName)
 findQualName names (Qualified [] n)
   = Qualified [] <$> findName names n
@@ -117,8 +124,6 @@ mergeNamespaces namespace (Namespace ns2)
   = F.foldlM insertName namespace ns2
 
 
-
-
 nameToId :: SomeName -> Identifier
 nameToId (MsgName   n _) = n
 nameToId (PkgName   n _) = n
@@ -130,6 +135,31 @@ instance Eq SomeName where
   (==) = (==) `on` nameToId
 instance Ord SomeName where
   compare = comparing nameToId
+
+
+
+----------------------------------------
+
+-- | Set of namespaces. First parameter is global namespace and second
+--   is current path into namespace
+data Names = Names Namespace [Identifier]
+           deriving (Show,Typeable,Data)
+
+nameDown n (Names global path) = Names global (path ++ [n])
+
+resolveName :: Names -> QIdentifier -> PbMonadE (Qualified SomeName)
+resolveName (Names global _ ) (FullQualId qs n) = resolveNameWorker global qs n
+resolveName (Names global []) (QualId     qs n) = resolveNameWorker global qs n
+resolveName (Names global path) name@(QualId qs n) =
+  case findQualName global (Qualified (path ++ qs) n) of
+    Just x  -> return x
+    Nothing -> resolveName (Names global (init path)) name
+
+resolveNameWorker namespace qs n =
+  case findQualName namespace (Qualified qs n) of
+    Just x  -> return x
+    Nothing -> oops "Cannot find name" >> return (error "Impossible")  
+
 
 
 ----------------------------------------------------------------
