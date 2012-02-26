@@ -80,7 +80,6 @@ collectMessageNames (Message name flds _) = do
   addToNamespace (MsgName name names)
   return $ Message name fields names
 
-
 -- Collect names of fields
 collectFieldNames :: MessageField e -> NameBuilder (MessageField Namespace)
 collectFieldNames (MessageField f@(Field _ _ n _ _)) = 
@@ -91,22 +90,24 @@ collectFieldNames  MsgExtend      = return  MsgExtend
 collectFieldNames (Extensions e)  = return (Extensions e)
 collectFieldNames (MsgOption  o)  = return (MsgOption o)
 
-
 -- Collect all names from into namespace
 collectEnumNames :: EnumDecl -> NameBuilder ()
 collectEnumNames (EnumDecl nm flds) = do
   addToNamespace (EnumName nm)
   mapM_ addToNamespace [EnumElem n | EnumField n _ <- flds]
 
-
+-- Monad for accumulation of namespaces
 type NameBuilder = StateT Namespace PbMonadE
 
-runNamespace a = flip runStateT emptyNamespace a
+-- Evaluate namespace builder
+runNamespace :: StateT Namespace m a -> m (a, Namespace)
+runNamespace = flip runStateT emptyNamespace
 
 -- Add name into namespace
 addToNamespace :: SomeName -> NameBuilder ()
 addToNamespace n =
   put =<< lift . flip insertName n =<< get
+
 
 
 ----------------------------------------------------------------
@@ -129,6 +130,7 @@ resolvePkgImport (Bundle _ imap pmap) (ProtobufFile pb quals names (Global ns)) 
           | ProtobufFile _ qs pkgNames _ <- [ pmap ! (imap ! i) | Import i <- imports ]
           ]
   return $ ProtobufFile pb' quals names (Global global)
+
 
 
 ----------------------------------------------------------------
