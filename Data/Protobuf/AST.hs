@@ -3,12 +3,13 @@
 -- Abstract syntax tree for protobuf file
 module Data.Protobuf.AST where
 
+import Data.List (intercalate)
 import Data.Data
 
 -- | Protocol buffer file. 
 --   Parameter 'n' stands for namespace type. Since new namespaces are introduced in file 
 data ProtobufFile n
-  = ProtobufFile [Protobuf n] [Identifier] n (Global n)
+  = ProtobufFile [Protobuf] [Identifier] n
     deriving (Show,Typeable,Data)
 
 -- | Newtype wrapper which is used to ditinguish between package
@@ -17,14 +18,14 @@ newtype Global a = Global a
                  deriving (Show,Typeable,Data)
 
 -- | top level declarations
-data Protobuf n =
+data Protobuf =
     Import      String
     -- ^ Import declaration
   | Package     [Identifier]
     -- ^ Specify package for module
-  | TopMessage  (Message n)
+  | TopMessage  Message
     -- ^ Message type
-  | Extend      QIdentifier [MessageField n]
+  | Extend      QIdentifier [MessageField]
     -- ^ Extend message. NOT IMPLEMENTED
   | TopEnum     EnumDecl
     -- ^ Enumeration
@@ -33,7 +34,10 @@ data Protobuf n =
   deriving (Show,Typeable,Data)
 
 -- | Enumeration declaration
-data EnumDecl = EnumDecl Identifier [EnumField]
+data EnumDecl = EnumDecl 
+                Identifier      -- Enum name
+                [EnumField]     -- Enum fields
+                [Identifier]    -- Location in namespace
                 deriving (Show,Typeable,Data)
 
 -- | Enumeration field
@@ -43,16 +47,19 @@ data EnumField
   deriving (Show,Typeable,Data)
 
 -- | Message declaration
-data Message n = Message Identifier [MessageField n] n
-                 deriving (Show,Typeable,Data)
+data Message = Message 
+               Identifier     -- Message name
+               [MessageField] -- Message fiedls
+               [Identifier]   -- Location in namespace (message name included)
+               deriving (Show,Typeable,Data)
 
 -- | Single field in message body. Note that groups are not supported.
-data MessageField n
+data MessageField
   = MessageField Field
     -- ^ Message field
   | MessageEnum EnumDecl
     -- ^ Enumeration declaration
-  | Nested (Message n)
+  | Nested Message
     -- ^ Nested message
   | MsgExtend -- FIXME
     -- ^ Extend other type
@@ -98,7 +105,11 @@ instance Show Identifier where
 data QIdentifier 
   = QualId     [Identifier] Identifier -- ^ Qualified identifier
   | FullQualId [Identifier] Identifier -- ^ Fully qualified identifier
-  deriving (Show,Typeable,Data)
+  deriving (Typeable,Data)
+
+instance Show QIdentifier where
+  show (QualId     ns n) = show $ intercalate "." $ map identifier (ns ++ [n])
+  show (FullQualId ns n) = show $ ('.' :) $ intercalate "." $ map identifier (ns ++ [n])
 
 
 -- | Field tag

@@ -54,7 +54,7 @@ import Data.Protobuf.AST
 %%
 
 Protobuf :: { ProtobufFile () }
-  : ProtobufDecls       { ProtobufFile $1 [] () (Global ()) }
+  : ProtobufDecls       { ProtobufFile $1 [] () }
 
 -- Complete protobuf file
 ProtobufDecls
@@ -75,7 +75,7 @@ Import
   : "import" "strlit" ";"     { Import $2 }
 -- Message declaration
 Message
-  : "message" Ident "{" MessageFields "}" { Message $2 $4 () }
+  : "message" Ident "{" MessageFields "}" { Message $2 $4 [] }
 MessageFields
   : {- empty -}                { []      }
   | MessageField MessageFields { $1 : $2 }
@@ -95,7 +95,7 @@ Modifier
 
 -- Enumeration
 Enum
-  : "enum" Ident "{" EnumFields "}"   { EnumDecl $2 $4 }
+  : "enum" Ident "{" EnumFields "}"   { EnumDecl $2 $4 [] }
 EnumFields
   : EnumField            { $1 : [] }
   | EnumField EnumFields { $1 : $2 }

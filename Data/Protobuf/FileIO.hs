@@ -68,7 +68,7 @@ addAbsolutePath b@(Bundle{..}) name
   | name `Map.member` importMap = return b
   -- Read file
   | otherwise                   = do
-      pb@(ProtobufFile stmts _ _ _)  <- liftIO $ readPbFile name
+      pb@(ProtobufFile stmts _ _)  <- liftIO $ readPbFile name
       foldM addFile
         b { packageMap = Map.insert name pb packageMap }
         [SearchPath i | Import i <- stmts]

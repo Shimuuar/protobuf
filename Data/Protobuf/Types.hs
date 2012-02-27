@@ -83,8 +83,11 @@ data SomeName
 
 -- | Namespace
 newtype Namespace = Namespace (Map Identifier SomeName)
-                  deriving (Show,Typeable,Data)
+                  deriving (Typeable,Data)
 
+instance Show Namespace where
+  show (Namespace m) = show $ Map.elems m
+                           
 -- | Empty namespace
 emptyNamespace :: Namespace
 emptyNamespace = Namespace Map.empty
