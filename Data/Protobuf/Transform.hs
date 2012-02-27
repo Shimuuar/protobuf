@@ -40,14 +40,11 @@ import Data.Protobuf.DataTree
 --   ProtobufFile declaration.
 removePackage :: ProtobufFile a -> PbMonad (ProtobufFile a)
 removePackage (ProtobufFile pb _ a b) = do
-  let (package,rest) = partition isPackage pb
-      isPackage (Package _) = True
-      isPackage _           = False
-  p <- case package of
-         []           -> return []
-         [Package qs] -> return qs
-         _            -> throwError "Multiple package declarations"
-  return $ ProtobufFile rest p a b
+  p <- case [ p | Package p <- pb ] of
+         []   -> return []
+         [qs] -> return qs
+         _    -> throwError "Multiple package declarations"
+  return $ ProtobufFile pb p a b
 
 
 
@@ -68,8 +65,8 @@ traversePackage (TopEnum    e) =
   TopEnum e <$ collectEnumNames e
 traversePackage (TopMessage msg) = do
   TopMessage <$> collectMessageNames msg
-traversePackage (Import i)    = return $ Import i
-traversePackage (Package _)   = error "Impossible happended"
+traversePackage (Import  i)   = return $ Import  i
+traversePackage (Package p)   = return $ Package p
 traversePackage (Extend _ _)  = throwError "Extensions are not supported"
 traversePackage (TopOption o) = return $ TopOption o
 
