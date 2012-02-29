@@ -77,7 +77,7 @@ collectMessageNames path (Message name fields _) = do
 collectEnumNames :: [Identifier] -> EnumDecl -> NameCollector EnumDecl
 collectEnumNames path (EnumDecl name fields _) = do
   addName (EnumName name)
-  mapM_ addName [ FieldName n | EnumField n _ <- fields] 
+  mapM_ addName [ FieldName n | EnumField n _ <- fields]
   return $ EnumDecl name fields path
 
 -- Collect names from the fields
@@ -103,7 +103,7 @@ addName n =
   put =<< lift . flip insertName n =<< get
 
 
-  
+
 ----------------------------------------------------------------
 -- * Stage 3. Resolve imports and build global namespace. Name clashes
 --   in import are discovered during this stage. After this stage each
@@ -142,3 +142,39 @@ toTypename :: Qualified SomeName -> PbMonadE QIdentifier
 toTypename (Qualified qs (MsgName  nm _)) = return $ FullQualId qs nm
 toTypename (Qualified qs (EnumName nm  )) = return $ FullQualId qs nm
 toTypename _ = throwError "Not a type name"
+
+
+
+----------------------------------------------------------------
+-- * Stage 5. Convert AST to haskell representation
+
+toHaskellTree :: [ProtobufFile Namespace] -> PbMonad DataTree
+toHaskellTree pb =
+  DataTree <$> runCollide (mconcat decls)
+  where
+    decls =  [ enumToHask    e | e <- universeBi pb ]
+          ++ [ messageToHask m | m <- universeBi pb ]
+
+enumToHask :: EnumDecl -> CollideMap [Identifier] HsModule
+enumToHask (EnumDecl (Identifier name) fields qs) =
+  collide qs $ HsEnum (TyName name)
+  [ (TyName n, i) | EnumField (Identifier n) i <- fields ]
+
+messageToHask :: Message -> CollideMap [Identifier] HsModule
+messageToHask (Message (Identifier name) fields qs) =
+  collide qs $ HsMessage (TyName name) [fieldToHask f | MessageField f <- fields]
+
+fieldToHask :: Field -> HsField
+fieldToHask (Field m t n tag _) =
+  HsField (con hsTy) (identifier n) tag
+  where
+    -- Haskell field outer type
+    con = case m of Required -> HsSimple
+                    Optional -> HsMaybe
+                    Repeated -> HsSeq
+    -- Haskell field inner type
+    hsTy = case t of
+      BaseType  ty                 -> HsBuiltin  ty
+      (UserType (FullQualId qs n)) -> HsUserType (Qualified qs n)
+      _ -> error "Impossible happened: name isn't fully qualifed"
+

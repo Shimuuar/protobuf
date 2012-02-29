@@ -1,4 +1,4 @@
--- | 
+-- |
 -- Tree which describe generated haskell data structures. It's then
 -- converted to haskell-src-exts syntax tree and pretty-printed.
 --
@@ -13,37 +13,46 @@
 -- * @repeated@ could be either 'Seq' or 'Vector'
 module Data.Protobuf.DataTree where
 
+import Control.Monad.Error
+
+import Data.List
+import Data.Monoid
 import qualified Data.Map as Map
 import           Data.Map   (Map)
 
-import Data.Protobuf.AST   (PrimType(..), FieldTag(..) )
-import Data.Protobuf.Types (Qualified(..))
+import Data.Protobuf.AST
+import Data.Protobuf.Types (Qualified(..),PbMonadE,PbMonad)
 
--- | complete 
-data DataTree = DataTree (Map (Qualified String) HsModule)
 
+
+-- | Complete list of modukes and data structures
+newtype DataTree = DataTree (Map [Identifier] HsModule)
+                   deriving (Show)
 
 -- | Haskell module. It contains single data type which corresponds
 --   either to message or to enum.
-data HsModule 
+data HsModule
   = HsMessage TyName [HsField]
   | HsEnum    TyName [(TyName,Integer)]
-
+  deriving (Show)
 
 -- | Single field of haskell message
-data HsField 
+data HsField
   = HsField HsType String FieldTag
+  deriving (Show)
 
 -- | Haskell type of field in message
-data HsType 
+data HsType
   = HsSimple HsTypename         -- ^ Required data type
   | HsMaybe  HsTypename         -- ^ Optional data type
   | HsSeq    HsTypename         -- ^ Repeated data type as 'Seq'
+  deriving (Show)
 
--- | Name of type. 
+-- | Name of type.
 data HsTypename
   = HsBuiltin  PrimType
-  | HsUserType TyName
+  | HsUserType (Qualified Identifier)
+  deriving (Show)
 
 
 
@@ -51,3 +60,24 @@ data HsTypename
 --   letter
 newtype TyName = TyName String
                  deriving Show
+
+
+----------------------------------------------------------------
+
+data CollideMap k a = CollideMap [String] (Map k a)
+
+runCollide :: CollideMap k a -> PbMonad (Map k a)
+runCollide (CollideMap []   m) = return m
+runCollide (CollideMap errs _) = throwError $ unlines $ "Collisions:" : errs
+
+collide :: k -> v -> CollideMap k v
+collide k v = CollideMap [] (Map.singleton k v)
+
+instance (Show k, Ord k) => Monoid (CollideMap k a) where
+  mempty = CollideMap mempty mempty
+  mappend (CollideMap e1 m1) (CollideMap e2 m2) =
+    Map.foldWithKey insert (CollideMap (e1++e2) m1) m2
+    where
+      insert k v (CollideMap errs m)
+        | k `Map.member` m = CollideMap (show k : errs) m
+        | otherwise        = CollideMap errs (Map.insert k v m)
