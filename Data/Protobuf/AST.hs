@@ -76,7 +76,7 @@ data Extension
   deriving (Show,Typeable,Data)
 
 -- | Sinlge field of message
-data Field = Field Modifier Type Identifier FieldTag [Option]
+data Field = Field Modifier Type IdentifierF FieldTag [Option]
            deriving (Show,Typeable,Data)
 
 
@@ -98,8 +98,13 @@ addQualList q (Qualified qs x) = Qualified (q ++ qs) x
 -- | Simple unqualified identifier.
 newtype Identifier = Identifier { identifier :: String }
                    deriving (Typeable,Data,Eq,Ord)
+-- | Identifier for a field
+newtype IdentifierF = IdentifierF { identifierF :: String }
+                   deriving (Typeable,Data,Eq,Ord)
 instance Show Identifier where
   show = show . identifier
+instance Show IdentifierF where
+  show = show . identifierF
 
 -- | General form of identifier
 data QIdentifier 

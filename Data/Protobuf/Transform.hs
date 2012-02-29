@@ -15,6 +15,7 @@ import qualified Data.Map      as Map
 import           Data.Map        (Map,(!))
 import qualified Data.Set      as Set
 import           Data.Set        (Set)
+import Data.Char
 import Data.Data                 (Data)
 import Data.List
 import Data.Function
@@ -36,7 +37,24 @@ import Data.Protobuf.DataTree
 ----------------------------------------------------------------
 
 ----------------------------------------------------------------
--- * Stage 1. Remove package declarations and move package name into
+-- * Stage 1. Mangle all names. 
+mangleNames :: Data a => Bundle a -> Bundle a
+mangleNames 
+  = transformBi mangleFieldName
+  . transformBi mangleTypeName  
+
+-- Convert type/constructor/package name to upper case
+mangleTypeName :: Identifier -> Identifier
+mangleTypeName (Identifier (c:cs)) = Identifier $ toLower c : cs
+mangleTypeName (Identifier "")     = error "Impossible happened: invalid field identifier"
+
+-- Only field names in messages should start from lower case
+mangleFieldName :: IdentifierF -> IdentifierF
+mangleFieldName (IdentifierF (c:cs)) = IdentifierF $ toLower c : cs
+mangleFieldName (IdentifierF "")     = error "Impossible happened: invalid field identifier"
+
+----------------------------------------------------------------
+-- * Stage 2. Remove package declarations and move package name into
 --   ProtobufFile declaration.
 removePackage :: ProtobufFile a -> PbMonad (ProtobufFile a)
 removePackage (ProtobufFile pb _ x) = do
@@ -48,7 +66,7 @@ removePackage (ProtobufFile pb _ x) = do
 
 
 ----------------------------------------------------------------
--- * Stage 2. Build and cache namespaces. During this stage name
+-- * Stage 3. Build and cache namespaces. During this stage name
 --   collisions are discovered and repored as errors. Package
 --   namespace is added to global namespace.
 buildNamespace :: ProtobufFile a -> PbMonad (ProtobufFile Namespace)
@@ -83,7 +101,7 @@ collectEnumNames path (EnumDecl name fields _) = do
 -- Collect names from the fields
 collectFieldNames :: [Identifier] -> MessageField -> NameCollector MessageField
 collectFieldNames path f@(MessageField (Field _ _ n _ _)) =
-  f <$ addName (FieldName n)
+  f <$ addName (FieldName $ Identifier $ identifierF n)
 collectFieldNames path (Nested m) = do
   Nested <$> collectMessageNames path m
 collectFieldNames path (MessageEnum e) =
@@ -105,7 +123,7 @@ addName n =
 
 
 ----------------------------------------------------------------
--- * Stage 3. Resolve imports and build global namespace. Name clashes
+-- * Stage 4. Resolve imports and build global namespace. Name clashes
 --   in import are discovered during this stage. After this stage each
 --   protobuf file is self containted so we can discard bundle.
 resolveImports :: Bundle Namespace -> PbMonad [ProtobufFile Namespace]
@@ -122,7 +140,7 @@ resolvePkgImport (Bundle _ imap pmap) (ProtobufFile pb qs names) = do
 
 
 ----------------------------------------------------------------
--- * Stage 4. Resolve all names. All type names at this point are
+-- * Stage 5. Resolve all names. All type names at this point are
 --   converted into fully qualifie form.
 resolveTypeNames :: ProtobufFile Namespace -> PbMonad (ProtobufFile Namespace)
 resolveTypeNames p@(ProtobufFile _ _ global) =
@@ -146,8 +164,7 @@ toTypename _ = throwError "Not a type name"
 
 
 ----------------------------------------------------------------
--- * Stage 5. Convert AST to haskell representation
-
+-- * Stage 6. Convert AST to haskell representation
 toHaskellTree :: [ProtobufFile Namespace] -> PbMonad DataTree
 toHaskellTree pb =
   DataTree <$> runCollide (mconcat decls)
@@ -155,18 +172,21 @@ toHaskellTree pb =
     decls =  [ enumToHask    e | e <- universeBi pb ]
           ++ [ messageToHask m | m <- universeBi pb ]
 
+-- Convert enumeration to haskell
 enumToHask :: EnumDecl -> CollideMap [Identifier] HsModule
 enumToHask (EnumDecl (Identifier name) fields qs) =
   collide qs $ HsEnum (TyName name)
   [ (TyName n, i) | EnumField (Identifier n) i <- fields ]
 
+-- Convert message to haskell
 messageToHask :: Message -> CollideMap [Identifier] HsModule
 messageToHask (Message (Identifier name) fields qs) =
   collide qs $ HsMessage (TyName name) [fieldToHask f | MessageField f <- fields]
 
+-- Convert field to haskell
 fieldToHask :: Field -> HsField
 fieldToHask (Field m t n tag _) =
-  HsField (con hsTy) (identifier n) tag
+  HsField (con hsTy) (identifierF n) tag
   where
     -- Haskell field outer type
     con = case m of Required -> HsSimple

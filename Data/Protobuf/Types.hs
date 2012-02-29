@@ -60,7 +60,7 @@ data Bundle n = Bundle
   , packageMap :: Map FilePath (ProtobufFile n)
     -- ^ Map file pathes to packages.
   }
-
+  deriving (Data,Typeable)
 
 
 ----------------------------------------------------------------

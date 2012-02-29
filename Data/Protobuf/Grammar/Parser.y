@@ -87,7 +87,7 @@ MessageField
     -- FIXME: extension
   | Option    { MsgOption    $1 }
 Field -- FIXME: field options
-  : Modifier Typename Ident "=" "int" ";" { Field $1 $2 $3 (FieldTag $5) [] }
+  : Modifier Typename IdentF "=" "int" ";" { Field $1 $2 $3 (FieldTag $5) [] }
 Modifier
   : "required" { Required }
   | "optional" { Optional }
@@ -117,6 +117,8 @@ Extend
 -- Identifier
 Ident
   : "ident"          { Identifier $1 }
+IdentF
+  : "ident"          { IdentifierF $1 }
 -- Identifier which could be fully qualified
 FullQualId
   : "." QualifiedId  { case $2 of 
