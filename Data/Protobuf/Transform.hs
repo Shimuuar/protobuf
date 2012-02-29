@@ -31,6 +31,7 @@ import Data.Protobuf.Types
 import Data.Protobuf.DataTree
 
 
+import Debug.Trace
 
 ----------------------------------------------------------------
 -- Normalization
@@ -38,15 +39,19 @@ import Data.Protobuf.DataTree
 
 ----------------------------------------------------------------
 -- * Stage 1. Mangle all names. 
-mangleNames :: Data a => Bundle a -> Bundle a
+mangleNames :: Data a => ProtobufFile a -> ProtobufFile a
 mangleNames 
   = transformBi mangleFieldName
-  . transformBi mangleTypeName  
+  . transformBi mangleTypeName
 
 -- Convert type/constructor/package name to upper case
 mangleTypeName :: Identifier -> Identifier
-mangleTypeName (Identifier (c:cs)) = Identifier $ toLower c : cs
-mangleTypeName (Identifier "")     = error "Impossible happened: invalid field identifier"
+mangleTypeName x = traceShow (x,x') x'
+  where x' = mangleTypeName' x
+
+mangleTypeName' :: Identifier -> Identifier
+mangleTypeName' (Identifier (c:cs)) = Identifier $ toUpper c : cs
+mangleTypeName' (Identifier "")     = error "Impossible happened: invalid field identifier"
 
 -- Only field names in messages should start from lower case
 mangleFieldName :: IdentifierF -> IdentifierF
