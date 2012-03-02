@@ -8,24 +8,37 @@ import Data.Protobuf.DataTree
 import Language.Haskell.Exts.Syntax
 
 
-
+-- | Convert module into the haskell code to be dumped
 convert :: ([Identifier],HsModule) -> Module
 convert (qs, msg) = 
--- convert (qs, HsMessage nm fields) = 
-  Module s (modName qs) [] Nothing Nothing 
-  [ ] 
-  (convertDecl msg)
--- convert (qs, HsEnum nm fields) =
---   Module s (modName qs) [] Nothing Nothing 
---   [] []
+  Module s (modName qs) 
+   [ LanguagePragma s [ Ident "DeriveDataTypeable"
+                      , Ident "NoImplicitPrelude"
+                      ] ]
+   Nothing Nothing 
+   -- Imports
+   [ ImportDecl { importLoc       = s 
+                , importModule    = ModuleName "Data.Protobuf.Imports"
+                , importQualified = True
+                , importSrc       = False
+                , importPkg       = Nothing
+                , importAs        = Just $ ModuleName "P'"
+                , importSpecs     = Nothing
+                }
+   ] 
+   -- Code
+   (convertDecl msg)
 
+
+-- | Convert declaration
 convertDecl :: HsModule -> [Decl]
 convertDecl (HsMessage (TyName name) fields) = 
   -- Data declaration
   [ DataDecl s DataType [] (Ident name) []
       [ QualConDecl s [] [] $ RecDecl (Ident name) (map recordField fields)
       ]
-      []
+      derives
+  -- ,
   ]
 convertDecl (HsEnum    (TyName name) fields) = 
   -- Data declaration
@@ -33,31 +46,36 @@ convertDecl (HsEnum    (TyName name) fields) =
       -- Constructors
       [ QualConDecl s [] [] (ConDecl (Ident n) []) | (TyName n, _) <- fields ]
       -- Deriving clause
-      [ ]
-  -- Ord instance
-  , InstDecl s [] (UnQual (Ident "PbEnum")) [TyCon $ UnQual $ Ident name]
+      ( (qname "Eq", []) : derives )
+  -- PbEnum instance
+  , declInstance  "PbEnum" name
       -- fromPbEnum
-      [ InsDecl $ FunBind 
-        [ Match s (Ident "fromPbEnum") 
-          [PVar $ Ident n] 
-          Nothing (UnGuardedRhs $ Lit $ Int i) (BDecls [])
+      [ instFun "fromPbEnum"
+        [ ( [PVar $ Ident n]
+          , Lit $ Int i)
         | (TyName n, i) <- fields ]
       -- toPbEnum
-      , InsDecl $ FunBind $
-        [ Match s (Ident "fromPbEnum") 
-          [PLit $ Int i]
-          Nothing (UnGuardedRhs $ Con $ UnQual $ Ident n) (BDecls [])
+      , instFun "toPbEnum" 
+        [ ( [PLit $ Int i]
+          , Con $ UnQual $ Ident n)
         | (TyName n, i) <- fields ]
-        -- FIXME: Produce error!
       ]
+  -- Ord instance
+  , declInstance "Ord" name
+    [ instFun "compare" 
+        [ ( []
+          , (Var $ qname "comparing") `App` (Var $ qname "fromPbEnum"))
+        ]
+    ]
   ]
 
-modName :: [Identifier] -> ModuleName
-modName = ModuleName . intercalate "." . map identifier
+derives = 
+  [ (qname "Show",     [])
+  , (qname "Typeable", [])
+  , (qname "Data",     [])
+  ]
 
-modulePrefix :: Qualified Identifier -> ModuleName
-modulePrefix (Qualified qs n) = modName $ qs ++ [n]
-
+-- | Single fields of record
 recordField :: HsField -> ([Name], BangType)
 recordField (HsField tp name _) = 
   ([Ident name], outerType tp)
@@ -70,8 +88,8 @@ recordField (HsField tp name _) =
     innerType (HsUserType (Qualified qs n)) =
       TyCon $ Qual (modName (qs++[n])) (Ident $ identifier n)
     
-    primType PbDouble   = TyCon $ UnQual $ Ident "Double"
-    primType PbFloat    = TyCon $ UnQual $ Ident "Float"
+    primType PbDouble   = TyCon $ qname "Double"
+    primType PbFloat    = TyCon $ qname "Float"
     primType PbInt32    = sint32
     primType PbInt64    = sint64
     primType PbUInt32   = uint32
@@ -82,14 +100,36 @@ recordField (HsField tp name _) =
     primType PbFixed64  = uint64
     primType PbSFixed32 = sint32
     primType PbSFixed64 = sint64
-    primType PbBool     = TyCon $ UnQual $ Ident "Bool"
-    primType PbString   = TyCon $ UnQual $ Ident "String"
-    primType PbBytes    = TyCon $ UnQual $ Ident "Bytestring"
+    primType PbBool     = TyCon $ qname "Bool"
+    primType PbString   = TyCon $ qname "String"
+    primType PbBytes    = TyCon $ qname "Bytestring"
 
-    sint32 = TyCon $ UnQual $ Ident "Int32"
-    sint64 = TyCon $ UnQual $ Ident "Int64"
-    uint32 = TyCon $ UnQual $ Ident "Word32"
-    uint64 = TyCon $ UnQual $ Ident "Word64"
-  
+    sint32 = TyCon $ qname "Int32"
+    sint64 = TyCon $ qname "Int64"
+    uint32 = TyCon $ qname "Word32"
+    uint64 = TyCon $ qname "Word64"
+
+
+
+----------------------------------------------------------------
+-- Helpers
+----------------------------------------------------------------
+
+modName :: [Identifier] -> ModuleName
+modName = ModuleName . intercalate "." . map identifier
+
+-- Function declaration in the instance
+instFun name decls =
+  InsDecl $ FunBind 
+    [ Match s (Ident name)
+      pat Nothing (UnGuardedRhs rhs) (BDecls [])
+    | (pat,rhs) <- decls
+    ]
+
 s :: SrcLoc
 s =  SrcLoc "" 0 0
+
+qname = Qual (ModuleName "P'") . Ident
+
+declInstance cl name =
+  InstDecl s [] (qname cl) [TyCon $ UnQual $ Ident name]
