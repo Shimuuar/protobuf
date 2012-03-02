@@ -1,4 +1,7 @@
 module Data.Protobuf.Classes (
+    Default(..)
+  , PbEnum(..)
+  , Message(..)
   ) where
 
 import Data.Word
