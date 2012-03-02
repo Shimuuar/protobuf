@@ -33,6 +33,29 @@ import Data.Protobuf.DataTree
 
 import Debug.Trace
 
+
+
+----------------------------------------------------------------
+-- Validation
+----------------------------------------------------------------
+
+-- | Check that there are no duplicate labels
+checkLabels :: Data a => ProtobufFile a -> PbMonad ()
+checkLabels pb = collectErrors $ do
+  mapM_ checkMessage [ fs | Message  _ fs _ <- universeBi pb ]
+  mapM_ checkEnum    [ fs | EnumDecl _ fs _ <- universeBi pb ]
+  where
+    checkMessage fs = 
+      when (labels /= nub labels) $
+        oops "Duplicate labels"
+      where labels = [ i | MessageField (Field _ _ _ (FieldTag i) _) <- fs ]
+    checkEnum fs = 
+      when (labels /= nub labels) $
+        oops "Duplicate labels"
+      where labels = [ i | EnumField _ i <- fs ]
+
+
+
 ----------------------------------------------------------------
 -- Normalization
 ----------------------------------------------------------------
