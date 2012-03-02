@@ -38,7 +38,7 @@ convertDecl (HsMessage (TyName name) fields) =
       [ QualConDecl s [] [] $ RecDecl (Ident name) (map recordField fields)
       ]
       derives
-  , declInstance "Default" name
+  , declInstance "Message" name
       [ instFun1 "def" $
           foldl App (Con $ UnQual $ Ident name) 
           (map (const $ Var $ qname "def") fields)
@@ -69,7 +69,7 @@ convertDecl (HsEnum    (TyName name) fields) =
     [ instFun1 "compare" $
       (Var $ qname "comparing") `App` (Var $ qname "fromPbEnum")
     ]
-  , declInstance "Default" name
+  , declInstance "Message" name
       [ instFun1 "def" $
         Con $ UnQual $ Ident $ case head fields of { (TyName n,_) -> n }
       ]
