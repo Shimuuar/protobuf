@@ -38,7 +38,11 @@ convertDecl (HsMessage (TyName name) fields) =
       [ QualConDecl s [] [] $ RecDecl (Ident name) (map recordField fields)
       ]
       derives
-  -- ,
+  , declInstance "Default" name
+      [ instFun1 "def" $
+          foldl App (Con $ UnQual $ Ident name) 
+          (map (const $ Var $ qname "def") fields)
+      ]
   ]
 convertDecl (HsEnum    (TyName name) fields) = 
   -- Data declaration
@@ -46,7 +50,7 @@ convertDecl (HsEnum    (TyName name) fields) =
       -- Constructors
       [ QualConDecl s [] [] (ConDecl (Ident n) []) | (TyName n, _) <- fields ]
       -- Deriving clause
-      ( (qname "Eq", []) : derives )
+      derives
   -- PbEnum instance
   , declInstance  "PbEnum" name
       -- fromPbEnum
@@ -62,15 +66,18 @@ convertDecl (HsEnum    (TyName name) fields) =
       ]
   -- Ord instance
   , declInstance "Ord" name
-    [ instFun "compare" 
-        [ ( []
-          , (Var $ qname "comparing") `App` (Var $ qname "fromPbEnum"))
-        ]
+    [ instFun1 "compare" $
+      (Var $ qname "comparing") `App` (Var $ qname "fromPbEnum")
     ]
+  , declInstance "Default" name
+      [ instFun1 "def" $
+        Con $ UnQual $ Ident $ case head fields of { (TyName n,_) -> n }
+      ]
   ]
 
 derives = 
   [ (qname "Show",     [])
+  , (qname "Eq",       [])
   , (qname "Typeable", [])
   , (qname "Data",     [])
   ]
@@ -125,6 +132,13 @@ instFun name decls =
       pat Nothing (UnGuardedRhs rhs) (BDecls [])
     | (pat,rhs) <- decls
     ]
+
+instFun1 name rhs =
+  InsDecl $ FunBind 
+    [ Match s (Ident name)
+      [] Nothing (UnGuardedRhs rhs) (BDecls [])
+    ]
+
 
 s :: SrcLoc
 s =  SrcLoc "" 0 0
