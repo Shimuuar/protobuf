@@ -4,13 +4,16 @@ module Data.Serialize.VarInt where
 import Control.Applicative
 
 import Data.Bits
+import Data.Int
+import Data.Word
+
 import Data.Serialize.Get
 import Data.Serialize.Put
-import Data.Word
 
 
 
 getVarWord :: (Bits a, Num a) => Get a
+{-# INLINE getVarWord #-}
 getVarWord = do
   w <- fromIntegral <$> getWord8
   if not (testBit w 7)
@@ -24,7 +27,38 @@ getVarWord = do
         else loop (n+7) (((w .&. 0x7f) `shiftL` n) .|. b)
 
 putVarWord :: (Bits a, Integral a) => a -> Put
+{-# INLINE putVarWord #-}
 putVarWord n
-  | testBit n 7 = putWord8 $ fromIntegral n
-  | otherwise   = do putWord8 $ 0xf0 .|. fromIntegral (0x7f .&. n)
-                     putVarWord (n `shiftL` 7)
+  | n < 128     = putWord8 $ fromIntegral n
+  | otherwise   = do putWord8 $ 0x80 .|. fromIntegral (0x7f .&. n)
+                     putVarWord (n `shiftR` 7)
+
+
+----------------------------------------------------------------
+-- Concrete types
+----------------------------------------------------------------
+
+getVarWord32 :: Get Word32
+getVarWord32 = getVarWord
+
+putVarWord32 :: Word32 -> Put
+putVarWord32 = putVarWord
+
+getVarWord64 :: Get Word64
+getVarWord64 = getVarWord
+
+putVarWord64 :: Word64 -> Put
+putVarWord64 = putVarWord
+
+
+getVarInt32 :: Get Int32
+getVarInt32 = fromIntegral <$> getVarWord32
+
+putVarInt32 :: Int32 -> Put
+putVarInt32 = putVarWord32 . fromIntegral
+
+getVarInt64 :: Get Int64
+getVarInt64 = fromIntegral <$> getVarWord64
+
+putVarInt64 :: Int64 -> Put
+putVarInt64 = putVarWord64 . fromIntegral
