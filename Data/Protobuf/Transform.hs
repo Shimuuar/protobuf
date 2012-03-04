@@ -202,8 +202,8 @@ toHaskellTree pb =
 
 -- Convert enumeration to haskell
 enumToHask :: EnumDecl -> CollideMap [Identifier] HsModule
-enumToHask (EnumDecl (Identifier name) fields qs) =
-  collide qs $ HsEnum (TyName name)
+enumToHask (EnumDecl iname@(Identifier name) fields qs) =
+  collide (qs ++ [iname]) $ HsEnum (TyName name)
   [ (TyName n, i) | EnumField (Identifier n) i <- fields ]
 
 -- Convert message to haskell
