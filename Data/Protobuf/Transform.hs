@@ -179,14 +179,14 @@ resolveTypeNames p@(ProtobufFile _ _ global) =
       f <- mapM (resolveField (Names global ns)) fields
       return $ Message name f ns
     -- Resolve type names in messag field
-    resolveField ns (MessageField (Field m (UserType t) n tag o)) = do
+    resolveField ns (MessageField (Field m (SomeType t) n tag o)) = do
       qt <- toTypename =<< resolveName ns t
-      return $ MessageField $ Field m (UserType qt) n tag o
+      return $ MessageField $ Field m qt n tag o
     resolveField _ x = return x
 
-toTypename :: Qualified SomeName -> PbMonadE QIdentifier
-toTypename (Qualified qs (MsgName  nm _)) = return $ FullQualId qs nm
-toTypename (Qualified qs (EnumName nm  )) = return $ FullQualId qs nm
+toTypename :: Qualified SomeName -> PbMonadE Type
+toTypename (Qualified qs (MsgName  nm _)) = return $ MsgType  $ FullQualId qs nm
+toTypename (Qualified qs (EnumName nm  )) = return $ EnumType $ FullQualId qs nm
 toTypename _ = throwError "Not a type name"
 
 
@@ -217,12 +217,13 @@ fieldToHask (Field m t n tag _) =
   HsField (con hsTy) (identifierF n) tag
   where
     -- Haskell field outer type
-    con = case m of Required -> HsSimple
+    con = case m of Required -> HsReq
                     Optional -> HsMaybe
                     Repeated -> HsSeq
     -- Haskell field inner type
     hsTy = case t of
       BaseType  ty                 -> HsBuiltin  ty
-      (UserType (FullQualId qs n)) -> HsUserType (Qualified qs n)
+      (MsgType  (FullQualId qs n)) -> HsUserMessage (Qualified qs n)
+      (EnumType (FullQualId qs n)) -> HsUserEnum    (Qualified qs n)
       _ -> error "Impossible happened: name isn't fully qualifed"
 

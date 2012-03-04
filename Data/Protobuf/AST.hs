@@ -128,8 +128,10 @@ data Modifier = Required
               deriving (Show,Typeable,Data)
 -- | Type of the field
 data Type
-  = UserType QIdentifier
-  | BaseType PrimType
+  = SomeType QIdentifier        -- ^ Identifier of unknown type
+  | MsgType  QIdentifier        -- ^ Message type
+  | EnumType QIdentifier        -- ^ Enumeration type
+  | BaseType PrimType           -- ^ Built-in type
   deriving (Show,Typeable,Data)
 
 -- | Primitive types

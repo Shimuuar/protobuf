@@ -43,15 +43,16 @@ data HsField
 
 -- | Haskell type of field in message
 data HsType
-  = HsSimple HsTypename         -- ^ Required data type
+  = HsReq    HsTypename         -- ^ Required data type
   | HsMaybe  HsTypename         -- ^ Optional data type
   | HsSeq    HsTypename         -- ^ Repeated data type as 'Seq'
   deriving (Show)
 
 -- | Name of type.
 data HsTypename
-  = HsBuiltin  PrimType
-  | HsUserType (Qualified Identifier)
+  = HsBuiltin     PrimType
+  | HsUserMessage (Qualified Identifier)
+  | HsUserEnum    (Qualified Identifier)
   deriving (Show)
 
 

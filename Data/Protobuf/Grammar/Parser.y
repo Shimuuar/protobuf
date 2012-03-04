@@ -140,7 +140,7 @@ QIdent
 -- Type declarations
 Typename
   : BuiltinType { BaseType $1 }
-  | FullQualId  { UserType $1 }
+  | FullQualId  { SomeType $1 }
 BuiltinType
   : "double"    { PbDouble   }
   | "float"     { PbFloat    }
