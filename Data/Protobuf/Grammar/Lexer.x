@@ -29,9 +29,12 @@ tokens :-
   @ident                { TokIdent            }
   \{                    { const TokBraceOpen  }
   \}                    { const TokBraceClose }
+  \[                    { const TokSBrkOpen   }
+  \]                    { const TokSBrkClose  }
   \;                    { const TokSemicolon  }
   \=                    { const TokEqual      }
   \.                    { const TokDot        }
+  \,                    { const TokComma      }
 {
 
 -- | Token data type  
@@ -42,9 +45,12 @@ data Token
   | TokIdent  String            --  Identifier
   | TokBraceOpen                --  Opening brace {
   | TokBraceClose               --  Closing brace }
+  | TokSBrkOpen                 --  Opening square bracket [
+  | TokSBrkClose                --  Closing square bracket ]
   | TokSemicolon                --  Semicolon     ;
   | TokEqual                    --  =
   | TokDot                      --  .
+  | TokComma                    --  ,
   deriving Show
 
 -- Remove quotations in the string literals

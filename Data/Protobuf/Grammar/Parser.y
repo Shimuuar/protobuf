@@ -15,8 +15,11 @@ import Data.Protobuf.AST
   -- Punctuation
   "{"        { TokBraceOpen  }
   "}"        { TokBraceClose }
+  "["        { TokSBrkOpen   }
+  "]"        { TokSBrkClose  }
   ";"        { TokSemicolon  }
   "."        { TokDot        }
+  ","        { TokComma      }
   "="        { TokEqual      }
   -- Words with special meaning
   "package"  { TokIdent "package"  }  
@@ -45,10 +48,13 @@ import Data.Protobuf.AST
   "string"   { TokIdent "string"   }
   "bytes"    { TokIdent "bytes"    }
   -- Literals
-  "int"      { TokInt    $$  }
-  "real"     { TokDouble $$  }
-  "strlit"   { TokString $$  }
-  "ident"    { TokIdent  $$  }
+  -- 
+  "true"     { TokIdent  "true"  }
+  "false"    { TokIdent  "false" }
+  "int"      { TokInt    $$      }
+  "real"     { TokDouble $$      }
+  "strlit"   { TokString $$      }
+  "ident"    { TokIdent  $$      }
 
 
 %%
@@ -87,7 +93,12 @@ MessageField
     -- FIXME: extension
   | Option    { MsgOption    $1 }
 Field -- FIXME: field options
-  : Modifier Typename IdentF "=" "int" ";" { Field $1 $2 $3 (FieldTag $5) [] }
+  : Modifier Typename IdentF "=" "int" ";"                   { Field $1 $2 $3 (FieldTag $5) [] }
+  | Modifier Typename IdentF "=" "int" "[" FieldOpts "]" ";" { Field $1 $2 $3 (FieldTag $5) $7 }
+FieldOpts 
+  : OneOption               { [$1]    }
+  | OneOption "," FieldOpts { $1 : $3 }
+  
 Modifier
   : "required" { Required }
   | "optional" { Optional }
@@ -103,9 +114,16 @@ EnumField
   : Option               { EnumOption $1    }
   | Ident "=" "int" ";"  { EnumField  $1 $3 }
   
--- FIXME: option value could be almost anything!
 Option
-  : "option"  FullQualId "=" "strlit" { Option $2 $4 }
+  : "option" OneOption       { $2 }
+OneOption  
+  : FullQualId "=" OptionVal { Option $1 $3 }
+OptionVal
+  : "strlit" { OptString $1    }
+  | "true"   { OptBool   True  }
+  | "false"  { OptBool   False }
+  | "int"    { OptInt    $1    }
+  | "real"   { OptReal   $1    }
 Package
   : "package" QIdent ";" { Package $2 }
 -- FIXME:

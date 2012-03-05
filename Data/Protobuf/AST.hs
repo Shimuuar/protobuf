@@ -153,5 +153,13 @@ data PrimType
   | PbBytes    -- ^ Byte sequence
   deriving (Show,Typeable,Data)
 
-data Option  = Option QIdentifier String
-             deriving (Show,Typeable,Data)
+data Option = Option QIdentifier OptionVal
+            deriving (Show,Typeable,Data)
+
+data OptionVal
+  = OptString String
+  | OptBool   Bool
+  | OptInt    Integer
+  | OptReal   Rational
+  deriving (Show,Typeable,Data)
+
