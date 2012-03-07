@@ -214,9 +214,9 @@ messageToHask (Message (Identifier name) fields qs) =
 -- Convert field to haskell
 fieldToHask :: Field -> HsField
 fieldToHask (Field m t n tag opts) =
-  HsField (con hsTy) (identifierF n) tag
+  HsField (con hsTy) (identifierF n) tag (lookupOptionStr "default" opts)
   where
-    packed = case lookupOption (Qualified [] (Identifier "packed")) opts of
+    packed = case lookupOptionStr "packed" opts of
                Nothing          -> False
                Just (OptBool f) -> f
                _                -> error "Impossible happened: wrong `packed' option"

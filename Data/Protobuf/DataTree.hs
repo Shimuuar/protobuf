@@ -38,7 +38,7 @@ data HsModule
 
 -- | Single field of haskell message
 data HsField
-  = HsField HsType String FieldTag
+  = HsField HsType String FieldTag (Maybe OptionVal)
   deriving (Show)
 
 -- | Haskell type of field in message

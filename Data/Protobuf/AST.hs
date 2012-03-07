@@ -162,6 +162,9 @@ lookupOption q (Option qi v : opts)
   | q == qi   = Just v
   | otherwise = lookupOption q opts
 
+lookupOptionStr :: String -> [Option] -> Maybe OptionVal
+lookupOptionStr = lookupOption . Qualified [] . Identifier
+
 data OptionVal
   = OptString String
   | OptBool   Bool
