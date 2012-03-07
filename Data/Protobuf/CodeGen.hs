@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 -- | Haskell code generator
-module Data.Protobuf.CodeGen ( 
+module Data.Protobuf.CodeGen (
   convert
   ) where
 
@@ -43,43 +43,42 @@ convertDecl (HsMessage (TyName name) fields) =
       [ QualConDecl s [] [] $ RecDecl (Ident name) (map recordField fields)
       ]
       derives
-  , instance_ "Default" (tycon name `TyApp` tycon "Required") 
+  , instance_ "Default" (tycon name `TyApp` tycon "Required")
       [ bind "def" =: foldl App (con name)
-          [ case defV of 
-              Just v  -> lit v 
-              Nothing -> qvar "def" 
+          [ case defV of
+              Just v  -> lit v
+              Nothing -> qvar "def"
           | HsField _ _ _ defV <- fields ]
       ]
   , instance_ "Monoid" (tycon name `TyApp` tycon "Required")
       [ bind "mempty" =: qvar "def"
-      , let (m1,m2) = unzip [ ( pvar $ "x" ++ show i
-                              , pvar $ "y" ++ show i )
-                            | (i,_) <- zip [0::Int ..] fields ]
-        in fun "mappend" [ (PApp $ UnQual $ Ident name) m1
-                         , (PApp $ UnQual $ Ident name) m2
+      , let ns1 = patNames "x" fields
+            ns2 = patNames "y" fields
+        in fun "mappend" [ (PApp $ UnQual $ Ident name) (map PVar ns1)
+                         , (PApp $ UnQual $ Ident name) (map PVar ns2)
                          ]
-              =: foldl App (con name)
+              =: appF (con name)
                       [ app [ qvar "mergeField"
-                            , var $ "x" ++ show i
-                            , var $ "y" ++ show i
+                            , Var (UnQual n1)
+                            , Var (UnQual n2)
                             ]
-                      | (i, _) <- zip [0::Int ..] fields
+                      | (n1, n2) <- zip ns1 ns2
                       ]
       ]
   , instance_ "Message" (tycon name)
-      [ let q = ()
-        in bind "getMessage" =:
-             let_ [ bind "loop" =:
-                    Lambda s [pvar "v"]
-                    ( Do [ pvar "wt" <-- qvar "getWireTag"
-                         , Qualifier $
-                           Case (var "wt") $ 
-                           concatMap caseField fields
-                         ]
-                    )
-                  ]
-               (var "loop" `App` qvar "mempty")
-            -- (Var $ qname "mempty") 
+      [ bind "getMessage" =:
+          let_ [ bind "loop" =:
+                   Lambda s [pvar "v"]
+                   ( Do [ pvar "wt" <-- qvar "getWireTag"
+                        , Qualifier $
+                          Case (var "wt") $ concat
+                            [ caseField (length fields) i f | (i,f) <- enum fields]
+                        ]
+                   )
+               ]
+          (app [ var "loop"
+               , qvar "mempty"
+               ] )
       ]
   ]
 convertDecl (HsEnum    (TyName name) fields) =
@@ -90,7 +89,7 @@ convertDecl (HsEnum    (TyName name) fields) =
       -- Deriving clause
       derives
   -- PbEnum instance
-  , instance_ "PbEnum" (tycon name) $ 
+  , instance_ "PbEnum" (tycon name) $
       [ fun "fromPbEnum" [pvar n] =: lit i | (TyName n, i) <- fields ] ++
       [ fun "toPbEnum"   [plit i] =: con n | (TyName n, i) <- fields ]
   -- Ord instance
@@ -144,12 +143,23 @@ recordField (HsField tp name _ _) =
     uint64 = TyCon $ qname "Word64"
 
 
-caseField (HsField ty name (FieldTag tag) _) =
+caseField n i (HsField ty name (FieldTag tag) _) =
   -- We have found tag
   [ Alt s (PApp (qname "WireTag") [plit tag, plit typeTag])
-    (UnGuardedAlt $ 
+    (UnGuardedAlt $
      Do [ pvar "f" <-- getter
-        , Qualifier $ qvar "undefined"
+        , Qualifier $ app [ var "loop"
+                          , RecUpdate (var "v") [
+                            FieldUpdate (UnQual $ Ident name)
+                              (app [ qvar "mergeField"
+                                   , app [ var name
+                                         , var "v"
+                                         ]
+                                   , var "f"
+                                   ]
+                              )
+                            ]
+                          ]
         ]
     )
     (BDecls [])
@@ -162,6 +172,7 @@ caseField (HsField ty name (FieldTag tag) _) =
     (BDecls [])
   ]
   where
+    pnames = patNames "f" [1..n]
     -- Type tags
     typeTag = case ty of
       HsReq   t      -> innerTag t
@@ -221,7 +232,7 @@ caseField (HsField ty name (FieldTag tag) _) =
       PbString   -> qvar "getPbString"
       PbBytes    -> qvar "getPbBytestring"
 
-----------------------------------------------------------------      
+----------------------------------------------------------------
 
 varint, fixed32, fixed64, lenDelim :: Integer
 varint   = 0
@@ -250,7 +261,7 @@ qcon  = Con . qname
 tycon = TyCon . UnQual . Ident
 pvar  = PVar . Ident
 app = foldl1 App
-
+appF = foldl App
 
 f .<$>. g = app [ qvar "fmap" , f , g ]
 
@@ -265,23 +276,24 @@ p <-- e = Generator s p e
 
 (name,pats) =: exp = FunBind [ Match s (Ident name) pats Nothing (UnGuardedRhs exp) (BDecls []) ]
 
+patNames pref xs = [ Ident $ pref ++ show i | (i,_) <- zip [1..] xs ]
 
 class LiteralVal l where
   lit  :: l -> Exp
   plit :: l -> Pat
 
-instance LiteralVal Integer   where 
+instance LiteralVal Integer   where
   lit  = Lit  . Int
   plit = PLit . Int
-instance LiteralVal String    where 
+instance LiteralVal String    where
   lit  = Lit  . String
   plit = PLit . String
-instance LiteralVal Bool      where 
+instance LiteralVal Bool      where
   lit True  = Con $ qname "True"
   lit False = Con $ qname "False"
   plit = error "UNIMPLEMENTED"
-  
-instance LiteralVal Rational   where 
+
+instance LiteralVal Rational   where
   lit  = Lit  . Frac
   plit = PLit . Frac
 
@@ -291,3 +303,5 @@ instance LiteralVal OptionVal where
   lit (OptInt    i) = lit i
   lit (OptReal   r) = lit r
   plit = error "UNIMPLEMENTED"
+
+enum = zip [0..]
