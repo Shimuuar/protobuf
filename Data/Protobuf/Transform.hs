@@ -69,12 +69,8 @@ mangleNames
 
 -- Convert type/constructor/package name to upper case
 mangleTypeName :: Identifier -> Identifier
-mangleTypeName x = traceShow (x,x') x'
-  where x' = mangleTypeName' x
-
-mangleTypeName' :: Identifier -> Identifier
-mangleTypeName' (Identifier (c:cs)) = Identifier $ toUpper c : cs
-mangleTypeName' (Identifier "")     = error "Impossible happened: invalid field identifier"
+mangleTypeName (Identifier (c:cs)) = Identifier $ toUpper c : cs
+mangleTypeName (Identifier "")     = error "Impossible happened: invalid field identifier"
 
 -- Only field names in messages should start from lower case
 mangleFieldName :: IdentifierF -> IdentifierF
@@ -214,9 +210,10 @@ messageToHask (Message (Identifier name) fields qs) =
 -- Convert field to haskell
 fieldToHask :: Field -> HsField
 fieldToHask (Field m t n tag opts) =
-  HsField (con hsTy) (identifierF n) tag (lookupOptionStr "default" opts)
+  -- FIXME: pragmas' names are mangled as well!!!
+  HsField (con hsTy) (identifierF n) tag (lookupOptionStr "Default" opts)
   where
-    packed = case lookupOptionStr "packed" opts of
+    packed = case lookupOptionStr "Packed" opts of
                Nothing          -> False
                Just (OptBool f) -> f
                _                -> error "Impossible happened: wrong `packed' option"
