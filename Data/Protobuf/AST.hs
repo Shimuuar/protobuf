@@ -21,7 +21,7 @@ newtype Global a = Global a
 data Protobuf =
     Import      String
     -- ^ Import declaration
-  | Package     [Identifier]
+  | Package     (Qualified Identifier)
     -- ^ Specify package for module
   | TopMessage  Message
     -- ^ Message type
@@ -86,7 +86,7 @@ data Field = Field Modifier Type IdentifierF FieldTag [Option]
 
 -- | Qualified name
 data Qualified a = Qualified [Identifier] a
-                   deriving (Show,Eq,Ord)
+                   deriving (Show,Eq,Ord,Typeable,Data)
 
 addQualifier :: Identifier -> Qualified a -> Qualified a
 addQualifier q (Qualified qs x) = Qualified (q:qs) x
@@ -153,8 +153,14 @@ data PrimType
   | PbBytes    -- ^ Byte sequence
   deriving (Show,Typeable,Data)
 
-data Option = Option QIdentifier OptionVal
+data Option = Option (Qualified Identifier) OptionVal
             deriving (Show,Typeable,Data)
+
+lookupOption :: Qualified Identifier -> [Option] -> Maybe OptionVal
+lookupOption _ [] = Nothing
+lookupOption q (Option qi v : opts)
+  | q == qi   = Just v
+  | otherwise = lookupOption q opts
 
 data OptionVal
   = OptString String

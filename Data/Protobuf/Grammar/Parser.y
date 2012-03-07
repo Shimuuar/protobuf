@@ -117,7 +117,7 @@ EnumField
 Option
   : "option" OneOption       { $2 }
 OneOption  
-  : FullQualId "=" OptionVal { Option $1 $3 }
+  : QIdent "=" OptionVal { Option $1 $3 }
 OptionVal
   : "strlit" { OptString $1    }
   | "true"   { OptBool   True  }
@@ -146,14 +146,15 @@ FullQualId
   | QualifiedId      { $1 }
 -- Identifier which couldn't be full qualified
 QualifiedId
-  : QIdent           { case $1 of
-                         [] -> error "Impossible happened: PackageId" 
-                         xs -> QualId (init xs) (last xs)
+  : QIdent           { case $1 of 
+                         Qualified xs x -> QualId xs x
                      }
 -- Worker for qulified identifiers
 QIdent 
-  : Ident            { [$1] }
-  | Ident "." QIdent { $1 : $3 }
+  : Ident            { Qualified [] $1 }
+  | Ident "." QIdent { case $3 of
+                         Qualified qs x -> Qualified ($1 : qs) x 
+                     }
 
 -- Type declarations
 Typename

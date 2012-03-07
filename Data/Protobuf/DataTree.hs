@@ -45,7 +45,7 @@ data HsField
 data HsType
   = HsReq    HsTypename         -- ^ Required data type
   | HsMaybe  HsTypename         -- ^ Optional data type
-  | HsSeq    HsTypename         -- ^ Repeated data type as 'Seq'
+  | HsSeq    HsTypename Bool    -- ^ Repeated data type as 'Seq'. Flag indicate whether field is packed.
   deriving (Show)
 
 -- | Name of type.

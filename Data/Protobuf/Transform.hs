@@ -87,9 +87,9 @@ mangleFieldName (IdentifierF "")     = error "Impossible happened: invalid field
 removePackage :: ProtobufFile a -> PbMonad (ProtobufFile a)
 removePackage (ProtobufFile pb _ x) = do
   p <- case [ p | Package p <- pb ] of
-         []   -> return []
-         [qs] -> return qs
-         _    -> throwError "Multiple package declarations"
+         []               -> return []
+         [Qualified qs q] -> return (qs ++ [q])
+         _ -> throwError "Multiple package declarations"
   return $ ProtobufFile pb p x
 
 
@@ -213,13 +213,18 @@ messageToHask (Message (Identifier name) fields qs) =
 
 -- Convert field to haskell
 fieldToHask :: Field -> HsField
-fieldToHask (Field m t n tag _) =
+fieldToHask (Field m t n tag opts) =
   HsField (con hsTy) (identifierF n) tag
   where
+    packed = case lookupOption (Qualified [] (Identifier "packed")) opts of
+               Nothing          -> False
+               Just (OptBool f) -> f
+               _                -> error "Impossible happened: wrong `packed' option"
+    -- case 
     -- Haskell field outer type
     con = case m of Required -> HsReq
                     Optional -> HsMaybe
-                    Repeated -> HsSeq
+                    Repeated -> flip HsSeq packed
     -- Haskell field inner type
     hsTy = case t of
       BaseType  ty                 -> HsBuiltin  ty
