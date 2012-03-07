@@ -4,34 +4,20 @@ module Data.Protobuf.Transform where
 
 import Control.Applicative
 import Control.Monad
-import Control.Monad.IO.Class
 import Control.Monad.State
-import Control.Monad.Reader
 import Control.Monad.Error
 
-import qualified Data.Foldable    as F
-import qualified Data.Traversable as T
-import qualified Data.Map      as Map
-import           Data.Map        (Map,(!))
-import qualified Data.Set      as Set
-import           Data.Set        (Set)
+import Data.Map        ((!))
 import Data.Char
 import Data.Data                 (Data)
 import Data.List
-import Data.Function
 import Data.Monoid
-import Data.Ord
+
 import Data.Generics.Uniplate.Data
 
 import Data.Protobuf.AST
-import Data.Protobuf.Grammar.Parser
-import Data.Protobuf.Grammar.Lexer
 import Data.Protobuf.Types
--- import Data.Protobuf.FileIO
 import Data.Protobuf.DataTree
-
-
-import Debug.Trace
 
 
 
