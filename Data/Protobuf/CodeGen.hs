@@ -86,22 +86,28 @@ convertDecl (HsMessage (TyName name) fields) =
       ]
   , instance_ "Message" (tycon name)
       [ bind "getMessage" =:
-          let_ [ bind "loop" =:
+          let_ [ TypeSig s [Ident "loop"] (qtycon "LoopType" `TyApp` tycon name)
+               , bind "loop" =:
                    Lambda s [pvar "v"]
-                   ( Do [ pvar "wt" <-- qvar "getWireTag"
-                        , Qualifier $
-                          Case (var "wt") $ 
-                            concat [ caseField (length fields) i f | (i,f) <- enum fields]
-                            ++ [ Alt s PWildCard 
-                                 (UnGuardedAlt $
-                                  Do [ Qualifier $ app [ qvar "skipUnknownField" 
-                                                       , var  "wt" ]
-                                     , Qualifier $ app [ var "loop"
-                                                       , var "v" ]
-                                     ]
-                                 )
-                                 (BDecls [])
-                               ]
+                   ( Do [ pvar "done" <-- qvar "isEmpty"
+                        , Qualifier $ If (var "done") 
+                            (app [ qvar "return" , var "v" ])
+                            (Do [ pvar "wt" <-- qvar "getWireTag"
+                                , Qualifier $
+                                  Case (var "wt") $ 
+                                   concat [ caseField (length fields) i f | (i,f) <- enum fields]
+                                   ++ [ Alt s PWildCard 
+                                        (UnGuardedAlt $
+                                         Do [ Qualifier $ app [ qvar "skipUnknownField" 
+                                                              , var  "wt" ]
+                                            , Qualifier $ app [ var "loop"
+                                                              , var "v" ]
+                                            ]
+                                        )
+                                        (BDecls [])
+                                      ]
+                                ]
+                            )
                         ]
                    )
                ]
@@ -140,15 +146,16 @@ recordField :: HsField -> ([Name], BangType)
 recordField (HsField tp name _ _) =
   ([Ident name], outerType tp)
   where
-    outerType (HsReq   t  ) = BangedTy $ TyVar (Ident "r") `TyApp` (innerType t `TyApp` TyVar (Ident "r"))
+    outerType (HsReq   t  ) = BangedTy $ TyVar (Ident "r")     `TyApp` innerType t
     outerType (HsMaybe t  ) = BangedTy $ TyCon (qname "Maybe") `TyApp` innerType t
-    outerType (HsSeq   t _) = BangedTy (innerType t) -- !
+    outerType (HsSeq   t _) = BangedTy $ TyCon (qname "Seq"  ) `TyApp` innerType t
 
     innerType (HsBuiltin     t) = primType t
     innerType (HsUserMessage q) = userType q
     innerType (HsUserEnum    q) = userType q
 
-    userType (Qualified qs n) = TyCon $ Qual (modName (qs++[n])) (Ident $ identifier n)
+    userType (Qualified qs n) = 
+      (TyCon $ Qual (modName (qs++[n])) (Ident $ identifier n)) `TyApp` TyVar (Ident "r")
 
     primType PbDouble   = TyCon $ qname "Double"
     primType PbFloat    = TyCon $ qname "Float"
@@ -233,7 +240,7 @@ caseField n i (HsField ty name (FieldTag tag) _) =
       HsReq   t    -> qvar "Present" .<$>. getField t
       HsMaybe t    -> qvar "Just"    .<$>. getField t
       HsSeq t True -> getPacked t
-      HsSeq t _    -> qvar "undefined" .<$>. getField t
+      HsSeq t _    -> qvar "singleton" .<$>. getField t
 
     getPacked (HsBuiltin t) = app [ qvar "getPacked"
                                   , getPrim t

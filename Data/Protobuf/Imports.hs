@@ -11,6 +11,8 @@ module Data.Protobuf.Imports (
   , Float
   , String
   , Maybe(..)
+  , Seq
+  , singleton
     -- Classes
   , Show(..)
   , Eq(..)
@@ -21,10 +23,13 @@ module Data.Protobuf.Imports (
   , comparing
   , Typeable(..)
   , Data(..)
+  , Get(..)
+  , isEmpty
     -- 
   , module Data.Protobuf.Classes
   , module Data.Serialize.Protobuf
   , module Data.Serialize.VarInt
+  , LoopType
   ) where
 
 import Data.Word
@@ -32,7 +37,12 @@ import Data.Int
 import Data.Data
 import Data.Ord
 import Data.Monoid
+import Data.Sequence
 
 import Data.Protobuf.Classes
+import Data.Serialize.Get       (Get,isEmpty)
 import Data.Serialize.Protobuf
 import Data.Serialize.VarInt
+
+
+type LoopType v = (v Required) -> Get (v Required)
