@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveDataTypeable #-}
 -- |
 -- Tree which describe generated haskell data structures. It's then
 -- converted to haskell-src-exts syntax tree and pretty-printed.
@@ -15,6 +16,7 @@ module Data.Protobuf.DataTree where
 
 import Control.Monad.Error
 
+import Data.Data
 import Data.List
 import Data.Monoid
 import qualified Data.Map as Map
@@ -27,40 +29,40 @@ import Data.Protobuf.Types (Qualified(..),PbMonadE,PbMonad)
 
 -- | Complete list of modukes and data structures
 newtype DataTree = DataTree (Map [Identifier] HsModule)
-                   deriving (Show)
+                   deriving (Show,Data,Typeable)
 
 -- | Haskell module. It contains single data type which corresponds
 --   either to message or to enum.
 data HsModule
   = HsMessage TyName [HsField]
   | HsEnum    TyName [(TyName,Integer)]
-  deriving (Show)
+  deriving (Show,Data,Typeable)
 
 -- | Single field of haskell message
 data HsField
   = HsField HsType String FieldTag (Maybe OptionVal)
-  deriving (Show)
+  deriving (Show,Data,Typeable)
 
 -- | Haskell type of field in message
 data HsType
   = HsReq    HsTypename         -- ^ Required data type
   | HsMaybe  HsTypename         -- ^ Optional data type
   | HsSeq    HsTypename Bool    -- ^ Repeated data type as 'Seq'. Flag indicate whether field is packed.
-  deriving (Show)
+  deriving (Show,Data,Typeable)
 
 -- | Name of type.
 data HsTypename
   = HsBuiltin     PrimType
   | HsUserMessage (Qualified Identifier)
   | HsUserEnum    (Qualified Identifier)
-  deriving (Show)
+  deriving (Show,Data,Typeable)
 
 
 
 -- | Haskell type or type constructor name. It must start from capital
 --   letter
 newtype TyName = TyName String
-                 deriving Show
+                 deriving (Show,Data,Typeable)
 
 
 ----------------------------------------------------------------
