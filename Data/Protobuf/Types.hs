@@ -158,10 +158,12 @@ resolveName (Names global path) name@(QualId qs n) =
     Just x  -> return x
     Nothing -> resolveName (Names global (init path)) name
 
+resolveNameWorker :: Namespace -> [Identifier] -> Identifier -> PbMonadE (Qualified SomeName)
 resolveNameWorker namespace qs n =
   case findQualName namespace (Qualified qs n) of
     Just x  -> return x
-    Nothing -> oops "Cannot find name" >> return (error "Impossible")  
+    Nothing -> do oops $ "Cannot find name" ++ show (Qualified qs n)
+                  return (Qualified [] $ EnumName $ Identifier "DUMMY")
 
 
 
