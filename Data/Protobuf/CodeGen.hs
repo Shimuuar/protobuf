@@ -20,6 +20,8 @@ convert (qs, msg) =
   Module s (modName qs)
    [ LanguagePragma s [ Ident "DeriveDataTypeable"
                       , Ident "NoImplicitPrelude"
+                      , Ident "FlexibleInstances"
+                      , Ident "KindSignatures"
                       ] ]
    Nothing Nothing
    -- Imports
@@ -56,18 +58,18 @@ importList = map toImport . concatMap pick . universeBi
 convertDecl :: HsModule -> [Decl]
 convertDecl (HsMessage (TyName name) fields) =
   -- Data declaration
-  [ DataDecl s DataType [] (Ident name) [UnkindedVar $ Ident "r"]
+  [ DataDecl s DataType [] (Ident name) [KindedVar (Ident "r") (KindStar `KindFn` KindStar)]
       [ QualConDecl s [] [] $ RecDecl (Ident name) (map recordField fields)
       ]
       derives
-  , instance_ "Default" (tycon name `TyApp` tycon "Required")
+  , instance_ "Default" (tycon name `TyApp` qtycon "Required")
       [ bind "def" =: foldl App (con name)
           [ case defV of
               Just v  -> lit v
               Nothing -> qvar "def"
           | HsField _ _ _ defV <- fields ]
       ]
-  , instance_ "Monoid" (tycon name `TyApp` tycon "Required")
+  , instance_ "Monoid" (tycon name `TyApp` qtycon "Required")
       [ bind "mempty" =: qvar "def"
       , let ns1 = patNames "x" fields
             ns2 = patNames "y" fields
@@ -88,8 +90,18 @@ convertDecl (HsMessage (TyName name) fields) =
                    Lambda s [pvar "v"]
                    ( Do [ pvar "wt" <-- qvar "getWireTag"
                         , Qualifier $
-                          Case (var "wt") $ concat
-                            [ caseField (length fields) i f | (i,f) <- enum fields]
+                          Case (var "wt") $ 
+                            concat [ caseField (length fields) i f | (i,f) <- enum fields]
+                            ++ [ Alt s PWildCard 
+                                 (UnGuardedAlt $
+                                  Do [ Qualifier $ app [ qvar "skipUnknownField" 
+                                                       , var  "wt" ]
+                                     , Qualifier $ app [ var "loop"
+                                                       , var "v" ]
+                                     ]
+                                 )
+                                 (BDecls [])
+                               ]
                         ]
                    )
                ]
@@ -119,8 +131,8 @@ convertDecl (HsEnum    (TyName name) fields) =
       ]
   ]
 
-derives = map (\n -> (qname n, []))
-  [ "Show", "Eq", "Typeable", "Data" ]
+derives = map (\n -> (qname n, [])) []
+  -- [ "Show", "Eq" ]
 
 
 -- | Single fields of record
@@ -128,8 +140,8 @@ recordField :: HsField -> ([Name], BangType)
 recordField (HsField tp name _ _) =
   ([Ident name], outerType tp)
   where
-    outerType (HsReq   t  ) = BangedTy (TyVar (Ident "r") `TyApp` innerType t)
-    outerType (HsMaybe t  ) = BangedTy (innerType t) -- !
+    outerType (HsReq   t  ) = BangedTy $ TyVar (Ident "r") `TyApp` (innerType t `TyApp` TyVar (Ident "r"))
+    outerType (HsMaybe t  ) = BangedTy $ TyCon (qname "Maybe") `TyApp` innerType t
     outerType (HsSeq   t _) = BangedTy (innerType t) -- !
 
     innerType (HsBuiltin     t) = primType t
@@ -271,14 +283,15 @@ s =  SrcLoc "" 0 0
 
 qname = Qual (ModuleName "P'") . Ident
 
-var   = Var . UnQual . Ident
-qvar  = Var . qname
-con   = Con . UnQual . Ident
-qcon  = Con . qname
-tycon = TyCon . UnQual . Ident
-pvar  = PVar . Ident
-app = foldl1 App
-appF = foldl App
+var    = Var . UnQual . Ident
+qvar   = Var . qname
+con    = Con . UnQual . Ident
+qcon   = Con . qname
+tycon  = TyCon . UnQual . Ident
+qtycon = TyCon . qname
+pvar   = PVar . Ident
+app    = foldl1 App
+appF   = foldl  App
 
 f .<$>. g = app [ qvar "fmap" , f , g ]
 
