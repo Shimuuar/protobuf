@@ -1,5 +1,10 @@
 -- | Define utils for serializtion of protobuf message
-module Data.Serialize.Protobuf where
+module Data.Serialize.Protobuf ( 
+    -- * Wiretag
+    WireTag(..)
+  , getWireTag
+  , skipUnknownField
+  ) where
 
 import Control.Monad
 import Data.Bits
@@ -23,3 +28,8 @@ getSequence :: Get a -> Get [a]
 getSequence getter = do
   n <- getVarInt
   replicateM n getter
+
+skipUnknownField :: WireTag -> Get ()
+skipUnknownField w = do
+  return ()
+

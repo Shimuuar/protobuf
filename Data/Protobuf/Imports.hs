@@ -10,20 +10,29 @@ module Data.Protobuf.Imports (
   , Double
   , Float
   , String
+  , Maybe(..)
     -- Classes
   , Show(..)
   , Eq(..)
   , Ord(..)
+  , Functor(..)
+  , Monad(..)
+  , Monoid(..)
   , comparing
   , Typeable(..)
   , Data(..)
     -- 
   , module Data.Protobuf.Classes
+  , module Data.Serialize.Protobuf
+  , module Data.Serialize.VarInt
   ) where
 
 import Data.Word
 import Data.Int
 import Data.Data
 import Data.Ord
+import Data.Monoid
 
 import Data.Protobuf.Classes
+import Data.Serialize.Protobuf
+import Data.Serialize.VarInt

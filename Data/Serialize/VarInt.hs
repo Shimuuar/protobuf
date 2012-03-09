@@ -62,3 +62,16 @@ getVarInt64 = fromIntegral <$> getVarWord64
 
 putVarInt64 :: Int64 -> Put
 putVarInt64 = putVarWord64 . fromIntegral
+
+
+getZigzag32 :: Get Int32
+getZigzag32 = fromIntegral <$> getVarWord32
+
+putZigzag32 :: Int32 -> Put
+putZigzag32 = putVarWord32 . fromIntegral
+
+getZigzag64 :: Get Int64
+getZigzag64 = fromIntegral <$> getVarWord64
+
+putZigzag64 :: Int64 -> Put
+putZigzag64 = putVarWord64 . fromIntegral

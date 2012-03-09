@@ -1,7 +1,7 @@
 module Data.Protobuf.Classes (
     -- * Data
-    Required
-  , Val
+    Required(..)
+  , Val(..)
     -- * Classes
   , PbEnum(..)
   , Default(..)
