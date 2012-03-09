@@ -11,6 +11,8 @@ module Data.Protobuf.Classes (
 
 import Data.Word
 import Data.Int
+import Data.Monoid        (Monoid(..))
+import Data.Sequence      (Seq)
 import Data.Serialize.Get (Get)
 import Data.Serialize.Put (Put)
 
@@ -18,6 +20,7 @@ import Data.Serialize.Put (Put)
 data Required a 
   = Present a
   | NotSet
+    deriving (Show)
 
 instance Functor Required where
   fmap f (Present x) = Present (f x)
@@ -90,7 +93,8 @@ instance MessageField a => MessageField (Required a) where
 instance MessageField a => MessageField (Val a) where
   mergeField (Val a) (Val b) = Val $ mergeField a b
 
-
+instance MessageField (Seq a) where
+  mergeField = mappend
 
 ----------------------------------------------------------------
 -- Instances for Default
@@ -115,3 +119,5 @@ instance Default (Maybe a) where
   def = Nothing
 instance Default [a] where
   def = []
+instance Default (Seq a) where
+  def = mempty
