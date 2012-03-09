@@ -9,6 +9,7 @@ module Data.Protobuf.CodeGen (
 import Data.List
 import Data.Protobuf.AST
 import Data.Protobuf.DataTree
+import Data.Generics.Uniplate.Data
 
 import Language.Haskell.Exts.Syntax
 import Debug.Trace
@@ -22,18 +23,34 @@ convert (qs, msg) =
                       ] ]
    Nothing Nothing
    -- Imports
-   [ ImportDecl { importLoc       = s
+   ( ImportDecl { importLoc       = s
                 , importModule    = ModuleName "Data.Protobuf.Imports"
                 , importQualified = True
                 , importSrc       = False
                 , importPkg       = Nothing
                 , importAs        = Just $ ModuleName "P'"
                 , importSpecs     = Nothing
-                }
-   ]
+                } 
+     : importList msg
+   )
    -- Code
    (convertDecl msg)
 
+importList :: HsModule -> [ImportDecl]
+importList = map toImport . concatMap pick . universeBi
+  where
+    pick (HsBuiltin _)                    = []
+    pick (HsUserMessage (Qualified qs q)) = [qs ++ [q]]
+    pick (HsUserEnum    (Qualified qs q)) = [qs ++ [q]]
+    --
+    toImport qs = ImportDecl { importLoc       = s
+                             , importModule    = ModuleName $ intercalate "." $ map identifier qs
+                             , importQualified = True
+                             , importSrc       = False
+                             , importPkg       = Nothing
+                             , importAs        = Nothing
+                             , importSpecs     = Nothing
+                             }
 
 -- | Convert declaration
 convertDecl :: HsModule -> [Decl]
