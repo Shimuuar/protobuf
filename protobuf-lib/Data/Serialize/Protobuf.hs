@@ -7,12 +7,13 @@ module Data.Serialize.Protobuf (
   , getPacked
   , getPbString
   , getPbEnum
+  , getPbBytestring
   ) where
 
 import Control.Applicative
 import Control.Monad
 import Data.Bits
-
+import Data.ByteString          (ByteString)
 import Data.Serialize
 import Data.Serialize.Get
 import Data.Serialize.Put
@@ -71,3 +72,6 @@ repeatedly = do
 
 getPbEnum :: PbEnum a => Get a
 getPbEnum = toPbEnum <$> getVarInt
+
+getPbBytestring :: Get ByteString
+getPbBytestring = getByteString =<< getVarInt

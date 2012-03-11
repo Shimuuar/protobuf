@@ -19,6 +19,7 @@ source-repository head
 Library
   Build-Depends:        base >=3 && <5,
                         containers,
+                        bytestring,
                         cereal
   Exposed-modules:      Data.Protobuf.Classes
                         Data.Protobuf.Imports

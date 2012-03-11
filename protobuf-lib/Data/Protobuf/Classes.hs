@@ -9,6 +9,7 @@ module Data.Protobuf.Classes (
   , MessageField(..)
   ) where
 
+import qualified Data.ByteString as B
 import Data.Word
 import Data.Int
 import Data.Monoid        (Monoid(..))
@@ -78,7 +79,8 @@ instance MessageField Int32
 instance MessageField Int64
 instance MessageField [a] where
   mergeField = (++)
-
+instance MessageField B.ByteString where
+  mergeField = mappend
 
 instance MessageField a => MessageField (Maybe a) where
   mergeField (Just a) (Just b) = Just $ mergeField a b

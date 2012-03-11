@@ -12,6 +12,7 @@ module Data.Protobuf.Imports (
   , String
   , Maybe(..)
   , Seq
+  , ByteString
   , singleton
     -- Classes
   , Show(..)
@@ -37,7 +38,8 @@ import Data.Int
 import Data.Data
 import Data.Ord
 import Data.Monoid
-import Data.Sequence
+import Data.Sequence            (Seq,singleton)
+import Data.ByteString          (ByteString)
 
 import Data.Protobuf.Classes
 import Data.Serialize.Get       (Get,isEmpty)
