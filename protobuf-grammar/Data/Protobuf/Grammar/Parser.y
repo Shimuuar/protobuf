@@ -135,6 +135,7 @@ Extend
 Ident :: { Identifier () }
   : "ident"          { Identifier $1 }
   | "message"        { case $1 of TokIdent x -> Identifier x }
+  | "bytes"          { case $1 of TokIdent x -> Identifier x }
 -- Identifier which could be fully qualified
 FullQualId :: { QIdentifier }
   : "." QualifiedId  { case $2 of 
