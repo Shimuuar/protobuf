@@ -15,7 +15,7 @@ import Language.Haskell.Exts.Syntax
 import Debug.Trace
 
 -- | Convert module into the haskell code to be dumped
-convert :: ([Identifier],HsModule) -> Module
+convert :: ([Identifier TagType],HsModule) -> Module
 convert (qs, msg) =
   Module s (modName qs)
    [ LanguagePragma s [ Ident "DeriveDataTypeable"
@@ -280,7 +280,7 @@ fixed32  = 5
 -- Helpers
 ----------------------------------------------------------------
 
-modName :: [Identifier] -> ModuleName
+modName :: [Identifier TagType] -> ModuleName
 modName = ModuleName . intercalate "." . map identifier
 
 

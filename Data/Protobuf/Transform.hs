@@ -54,14 +54,14 @@ mangleNames
   . transformBi mangleTypeName
 
 -- Convert type/constructor/package name to upper case
-mangleTypeName :: Identifier -> Identifier
+mangleTypeName :: Identifier TagType -> Identifier TagType
 mangleTypeName (Identifier (c:cs)) = Identifier $ toUpper c : cs
 mangleTypeName (Identifier "")     = error "Impossible happened: invalid field identifier"
 
 -- Only field names in messages should start from lower case
-mangleFieldName :: IdentifierF -> IdentifierF
-mangleFieldName (IdentifierF (c:cs)) = IdentifierF $ toLower c : cs
-mangleFieldName (IdentifierF "")     = error "Impossible happened: invalid field identifier"
+mangleFieldName :: Identifier TagField -> Identifier TagField
+mangleFieldName (Identifier (c:cs)) = Identifier $ toLower c : cs
+mangleFieldName (Identifier "")     = error "Impossible happened: invalid field identifier"
 
 ----------------------------------------------------------------
 -- * Stage 2. Remove package declarations and move package name into
@@ -86,7 +86,7 @@ buildNamespace (ProtobufFile pb qs _) =
     return $ ProtobufFile pb' qs (foldr packageNamespace ns qs)
 
 -- Collect all names in package
-collectPackageNames :: [Identifier] -> Protobuf -> NameCollector Protobuf
+collectPackageNames :: [Identifier TagType] -> Protobuf -> NameCollector Protobuf
 collectPackageNames path (TopMessage m) =
   TopMessage <$> collectMessageNames path m
 collectPackageNames path (TopEnum    e) =
@@ -94,7 +94,7 @@ collectPackageNames path (TopEnum    e) =
 collectPackageNames _ x = return x
 
 -- Get namspace for a message
-collectMessageNames :: [Identifier] -> Message -> NameCollector Message
+collectMessageNames :: [Identifier TagType] -> Message -> NameCollector Message
 collectMessageNames path (Message name fields _) = do
   let path' = path ++ [name]
   (fs,ns) <- lift $ runNamespace $ mapM (collectFieldNames path') fields
@@ -102,16 +102,16 @@ collectMessageNames path (Message name fields _) = do
   return  $ Message name fs path'
 
 -- Get namespace for an enum
-collectEnumNames :: [Identifier] -> EnumDecl -> NameCollector EnumDecl
+collectEnumNames :: [Identifier TagType] -> EnumDecl -> NameCollector EnumDecl
 collectEnumNames path (EnumDecl name fields _) = do
   addName (EnumName name)
   mapM_ addName [ FieldName n | EnumField n _ <- fields]
   return $ EnumDecl name fields path
 
 -- Collect names from the fields
-collectFieldNames :: [Identifier] -> MessageField -> NameCollector MessageField
+collectFieldNames :: [Identifier TagType] -> MessageField -> NameCollector MessageField
 collectFieldNames path f@(MessageField (Field _ _ n _ _)) =
-  f <$ addName (FieldName $ Identifier $ identifierF n)
+  f <$ addName (FieldName $ Identifier $ identifier n)
 collectFieldNames path (Nested m) = do
   Nested <$> collectMessageNames path m
 collectFieldNames path (MessageEnum e) =
@@ -166,7 +166,7 @@ resolveTypeNames p@(ProtobufFile _ _ global) =
       return $ MessageField $ Field m qt n tag o
     resolveField _ x = return x
 
-toTypename :: Qualified SomeName -> PbMonadE Type
+toTypename :: Qualified TagType SomeName -> PbMonadE Type
 toTypename (Qualified qs (MsgName  nm _)) = return $ MsgType  $ FullQualId qs nm
 toTypename (Qualified qs (EnumName nm  )) = return $ EnumType $ FullQualId qs nm
 toTypename _ = throwError "Not a type name"
@@ -183,13 +183,13 @@ toHaskellTree pb =
           ++ [ messageToHask m | m <- universeBi pb ]
 
 -- Convert enumeration to haskell
-enumToHask :: EnumDecl -> CollideMap [Identifier] HsModule
+enumToHask :: EnumDecl -> CollideMap [Identifier TagType] HsModule
 enumToHask (EnumDecl iname@(Identifier name) fields qs) =
   collide (qs ++ [iname]) $ HsEnum (TyName name)
   [ (TyName n, i) | EnumField (Identifier n) i <- fields ]
 
 -- Convert message to haskell
-messageToHask :: Message -> CollideMap [Identifier] HsModule
+messageToHask :: Message -> CollideMap [Identifier TagType] HsModule
 messageToHask (Message (Identifier name) fields qs) =
   collide qs $ HsMessage (TyName name) [fieldToHask f | MessageField f <- fields]
 
@@ -197,9 +197,9 @@ messageToHask (Message (Identifier name) fields qs) =
 fieldToHask :: Field -> HsField
 fieldToHask (Field m t n tag opts) =
   -- FIXME: pragmas' names are mangled as well!!!
-  HsField (con hsTy) (identifierF n) tag (lookupOptionStr "Default" opts)
+  HsField (con hsTy) (identifier n) tag (lookupOptionStr "default" opts)
   where
-    packed = case lookupOptionStr "Packed" opts of
+    packed = case lookupOptionStr "packed" opts of
                Nothing          -> False
                Just (OptBool f) -> f
                _                -> error "Impossible happened: wrong `packed' option"

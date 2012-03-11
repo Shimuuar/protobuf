@@ -28,7 +28,7 @@ import Data.Protobuf.Types (Qualified(..),PbMonadE,PbMonad)
 
 
 -- | Complete list of modukes and data structures
-newtype DataTree = DataTree (Map [Identifier] HsModule)
+newtype DataTree = DataTree (Map [Identifier TagType] HsModule)
                    deriving (Show,Data,Typeable)
 
 -- | Haskell module. It contains single data type which corresponds
@@ -53,8 +53,8 @@ data HsType
 -- | Name of type.
 data HsTypename
   = HsBuiltin     PrimType
-  | HsUserMessage (Qualified Identifier)
-  | HsUserEnum    (Qualified Identifier)
+  | HsUserMessage (Qualified TagType (Identifier TagType))
+  | HsUserEnum    (Qualified TagType (Identifier TagType))
   deriving (Show,Data,Typeable)
 
 

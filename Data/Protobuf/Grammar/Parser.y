@@ -81,7 +81,7 @@ Import
   : "import" "strlit" ";"     { Import $2 }
 -- Message declaration
 Message
-  : "message" Ident "{" MessageFields "}" { Message $2 $4 [] }
+  : "message" Ident "{" MessageFields "}" { Message (castIdent $2) $4 [] }
 MessageFields
   : {- empty -}                { []      }
   | MessageField MessageFields { $1 : $2 }
@@ -93,8 +93,8 @@ MessageField
     -- FIXME: extension
   | Option    { MsgOption    $1 }
 Field -- FIXME: field options
-  : Modifier Typename IdentF "=" "int" ";"                   { Field $1 $2 $3 (FieldTag $5) [] }
-  | Modifier Typename IdentF "=" "int" "[" FieldOpts "]" ";" { Field $1 $2 $3 (FieldTag $5) $7 }
+  : Modifier Typename Ident "=" "int" ";"                   { Field $1 $2 (castIdent $3) (FieldTag $5) [] }
+  | Modifier Typename Ident "=" "int" "[" FieldOpts "]" ";" { Field $1 $2 (castIdent $3) (FieldTag $5) $7 }
 FieldOpts 
   : OneOption               { [$1]    }
   | OneOption "," FieldOpts { $1 : $3 }
@@ -106,18 +106,18 @@ Modifier
 
 -- Enumeration
 Enum
-  : "enum" Ident "{" EnumFields "}"   { EnumDecl $2 $4 [] }
+  : "enum" Ident "{" EnumFields "}"   { EnumDecl (castIdent $2) $4 [] }
 EnumFields
   : EnumField            { $1 : [] }
   | EnumField EnumFields { $1 : $2 }
 EnumField
   : Option               { EnumOption $1    }
-  | Ident "=" "int" ";"  { EnumField  $1 $3 }
+  | Ident "=" "int" ";"  { EnumField  (castIdent $1) $3 }
   
 Option
   : "option" OneOption       { $2 }
 OneOption  
-  : QIdent "=" OptionVal { Option $1 $3 }
+  : QIdent "=" OptionVal { Option (castQIdent $1) $3 }
 OptionVal
   : "strlit" { OptString $1    }
   | "true"   { OptBool   True  }
@@ -125,32 +125,30 @@ OptionVal
   | "int"    { OptInt    $1    }
   | "real"   { OptReal   $1    }
 Package
-  : "package" QIdent ";" { Package $2 }
+  : "package" QIdent ";" { Package (castQIdent $2) }
 -- FIXME:
 Extend
   : "extend"  { Extend  undefined undefined }
 
 
-
 -- Identifier
-Ident
+Ident :: { Identifier () }
   : "ident"          { Identifier $1 }
-IdentF
-  : "ident"          { IdentifierF $1 }
+  | "message"        { case $1 of TokIdent x -> Identifier x }
 -- Identifier which could be fully qualified
-FullQualId
+FullQualId :: { QIdentifier }
   : "." QualifiedId  { case $2 of 
                          QualId q n -> FullQualId q n 
                          _          -> error "Impossible happened: FullQualId"
                      }
   | QualifiedId      { $1 }
 -- Identifier which couldn't be full qualified
-QualifiedId
-  : QIdent           { case $1 of 
+QualifiedId :: { QIdentifier }
+  : QIdent           { case castQIdent $1 of 
                          Qualified xs x -> QualId xs x
                      }
 -- Worker for qulified identifiers
-QIdent 
+QIdent :: { Qualified () (Identifier ()) }
   : Ident            { Qualified [] $1 }
   | Ident "." QIdent { case $3 of
                          Qualified qs x -> Qualified ($1 : qs) x 

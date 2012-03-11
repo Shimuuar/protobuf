@@ -70,11 +70,11 @@ data Bundle n = Bundle
 
 -- | Single name in a set
 data SomeName
-  = MsgName   Identifier Namespace
-  | PkgName   Identifier Namespace
-  | FieldName Identifier
-  | EnumName  Identifier
-  | EnumElem  Identifier
+  = MsgName   (Identifier TagType) Namespace
+  | PkgName   (Identifier TagType) Namespace
+  | FieldName (Identifier TagType)
+  | EnumName  (Identifier TagType)
+  | EnumElem  (Identifier TagType)
   deriving (Show,Typeable,Data)
 
 
@@ -82,7 +82,7 @@ data SomeName
 ----------------------------------------
 
 -- | Namespace
-newtype Namespace = Namespace (Map Identifier SomeName)
+newtype Namespace = Namespace (Map (Identifier TagType) SomeName)
                   deriving (Typeable,Data)
 
 instance Show Namespace where
@@ -93,16 +93,16 @@ emptyNamespace :: Namespace
 emptyNamespace = Namespace Map.empty
 
 -- | Put namespace into package
-packageNamespace :: Identifier -> Namespace -> Namespace
+packageNamespace :: (Identifier TagType) -> Namespace -> Namespace
 packageNamespace pkg ns = 
   Namespace $ Map.singleton pkg (PkgName pkg ns)
 
 -- | Find name in namespace
-findName :: Namespace -> Identifier -> Maybe SomeName
+findName :: Namespace -> (Identifier TagType) -> Maybe SomeName
 findName (Namespace ns) n = Map.lookup n ns
 
 -- | Find qualified name in the namespace
-findQualName :: Namespace -> Qualified Identifier -> Maybe (Qualified SomeName)
+findQualName :: Namespace -> Qualified TagType (Identifier TagType) -> Maybe (Qualified TagType SomeName)
 findQualName names (Qualified [] n)
   = Qualified [] <$> findName names n
 findQualName names (Qualified (q:qs) n) = do
@@ -127,7 +127,7 @@ mergeNamespaces namespace (Namespace ns2)
   = F.foldlM insertName namespace ns2
 
 
-nameToId :: SomeName -> Identifier
+nameToId :: SomeName -> (Identifier TagType)
 nameToId (MsgName   n _) = n
 nameToId (PkgName   n _) = n
 nameToId (FieldName n  ) = n
@@ -145,12 +145,12 @@ instance Ord SomeName where
 
 -- | Set of namespaces. First parameter is global namespace and second
 --   is current path into namespace
-data Names = Names Namespace [Identifier]
+data Names = Names Namespace [(Identifier TagType)]
            deriving (Show,Typeable,Data)
 
 nameDown n (Names global path) = Names global (path ++ [n])
 
-resolveName :: Names -> QIdentifier -> PbMonadE (Qualified SomeName)
+resolveName :: Names -> QIdentifier -> PbMonadE (Qualified TagType SomeName)
 resolveName (Names global _ ) (FullQualId qs n) = resolveNameWorker global qs n
 resolveName (Names global []) (QualId     qs n) = resolveNameWorker global qs n
 resolveName (Names global path) name@(QualId qs n) =
@@ -158,7 +158,7 @@ resolveName (Names global path) name@(QualId qs n) =
     Just x  -> return x
     Nothing -> resolveName (Names global (init path)) name
 
-resolveNameWorker :: Namespace -> [Identifier] -> Identifier -> PbMonadE (Qualified SomeName)
+resolveNameWorker :: Namespace -> [(Identifier TagType)] -> (Identifier TagType) -> PbMonadE (Qualified TagType SomeName)
 resolveNameWorker namespace qs n =
   case findQualName namespace (Qualified qs n) of
     Just x  -> return x

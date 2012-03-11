@@ -9,7 +9,7 @@ import Data.Data
 -- | Protocol buffer file. 
 --   Parameter 'n' stands for namespace type. Since new namespaces are introduced in file 
 data ProtobufFile n
-  = ProtobufFile [Protobuf] [Identifier] n
+  = ProtobufFile [Protobuf] [Identifier TagType] n
     deriving (Show,Typeable,Data)
 
 -- | Newtype wrapper which is used to ditinguish between package
@@ -21,7 +21,7 @@ newtype Global a = Global a
 data Protobuf =
     Import      String
     -- ^ Import declaration
-  | Package     (Qualified Identifier)
+  | Package     (Qualified TagType (Identifier TagType))
     -- ^ Specify package for module
   | TopMessage  Message
     -- ^ Message type
@@ -35,22 +35,22 @@ data Protobuf =
 
 -- | Enumeration declaration
 data EnumDecl = EnumDecl 
-                Identifier      -- Enum name
-                [EnumField]     -- Enum fields
-                [Identifier]    -- Location in namespace
+                (Identifier TagType) -- Enum name
+                [EnumField]          -- Enum fields
+                [Identifier TagType] -- Location in namespace
                 deriving (Show,Typeable,Data)
 
 -- | Enumeration field
 data EnumField
-  = EnumField  Identifier Integer
+  = EnumField  (Identifier TagType) Integer
   | EnumOption Option
   deriving (Show,Typeable,Data)
 
 -- | Message declaration
 data Message = Message 
-               Identifier     -- Message name
-               [MessageField] -- Message fiedls
-               [Identifier]   -- Location in namespace (message name included)
+               (Identifier TagType) -- Message name
+               [MessageField]       -- Message fiedls
+               [Identifier TagType] -- Location in namespace (message name included)
                deriving (Show,Typeable,Data)
 
 -- | Single field in message body. Note that groups are not supported.
@@ -76,7 +76,7 @@ data Extension
   deriving (Show,Typeable,Data)
 
 -- | Sinlge field of message
-data Field = Field Modifier Type IdentifierF FieldTag [Option]
+data Field = Field Modifier Type (Identifier TagField) FieldTag [Option]
            deriving (Show,Typeable,Data)
 
 
@@ -85,31 +85,38 @@ data Field = Field Modifier Type IdentifierF FieldTag [Option]
 ----------------------------------------------------------------
 
 -- | Qualified name
-data Qualified a = Qualified [Identifier] a
-                   deriving (Show,Eq,Ord,Typeable,Data)
+data Qualified t a = Qualified [Identifier t] a
+                     deriving (Show,Eq,Ord,Typeable,Data)
 
-addQualifier :: Identifier -> Qualified a -> Qualified a
+addQualifier :: Identifier t -> Qualified t a -> Qualified t a
 addQualifier q (Qualified qs x) = Qualified (q:qs) x
 
-addQualList :: [Identifier] -> Qualified a -> Qualified a
+addQualList :: [Identifier t] -> Qualified t a -> Qualified t a
 addQualList q (Qualified qs x) = Qualified (q ++ qs) x
 
 
+-- | Tag for data types
+data TagType   = TagType    deriving (Typeable,Data)
+data TagField  = TagField   deriving (Typeable,Data)
+data TagOption = TagOption  deriving (Typeable,Data)
+
+castIdent :: Identifier t -> Identifier q
+castIdent = Identifier . identifier
+
+castQIdent :: Qualified t (Identifier t) -> Qualified q (Identifier q)
+castQIdent (Qualified xs x) = Qualified (map castIdent xs) (castIdent x)
+
 -- | Simple unqualified identifier.
-newtype Identifier = Identifier { identifier :: String }
+newtype Identifier t = Identifier { identifier :: String }
                    deriving (Typeable,Data,Eq,Ord)
--- | Identifier for a field
-newtype IdentifierF = IdentifierF { identifierF :: String }
-                   deriving (Typeable,Data,Eq,Ord)
-instance Show Identifier where
+instance Show (Identifier t) where
   show = show . identifier
-instance Show IdentifierF where
-  show = show . identifierF
+
 
 -- | General form of identifier
 data QIdentifier 
-  = QualId     [Identifier] Identifier -- ^ Qualified identifier
-  | FullQualId [Identifier] Identifier -- ^ Fully qualified identifier
+  = QualId     [Identifier TagType] (Identifier TagType) -- ^ Qualified identifier
+  | FullQualId [Identifier TagType] (Identifier TagType) -- ^ Fully qualified identifier
   deriving (Typeable,Data)
 
 instance Show QIdentifier where
@@ -153,10 +160,10 @@ data PrimType
   | PbBytes    -- ^ Byte sequence
   deriving (Show,Typeable,Data)
 
-data Option = Option (Qualified Identifier) OptionVal
+data Option = Option (Qualified TagOption (Identifier TagOption)) OptionVal
             deriving (Show,Typeable,Data)
 
-lookupOption :: Qualified Identifier -> [Option] -> Maybe OptionVal
+lookupOption :: Qualified TagOption (Identifier TagOption) -> [Option] -> Maybe OptionVal
 lookupOption _ [] = Nothing
 lookupOption q (Option qi v : opts)
   | q == qi   = Just v
