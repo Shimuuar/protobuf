@@ -24,8 +24,8 @@ module Data.Protobuf.Imports (
   , comparing
   , Typeable(..)
   , Data(..)
-  , Get(..)
-  , isEmpty
+  , module Data.Serialize.Get
+  , module Data.Serialize.IEEE754
     -- 
   , module Data.Protobuf.Classes
   , module Data.Serialize.Protobuf
@@ -42,7 +42,8 @@ import Data.Sequence            (Seq,singleton)
 import Data.ByteString          (ByteString)
 
 import Data.Protobuf.Classes
-import Data.Serialize.Get       (Get,isEmpty)
+import Data.Serialize.Get
+import Data.Serialize.IEEE754
 import Data.Serialize.Protobuf
 import Data.Serialize.VarInt
 
