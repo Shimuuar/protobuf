@@ -16,7 +16,8 @@ source-repository head
   type:     hg
   location: http://bitbucket.org/Shimuuar/protobuf-grammar
 
-Library
+Executable protoc-hs
+  Main-Is:              driver.hs
   Build-Depends:        base >=3 && <5,
                         containers,
                         mtl > 2,
@@ -24,9 +25,10 @@ Library
                         uniplate,
                         directory,
                         array,
-                        haskell-src-exts
+                        haskell-src-exts,
+                        groom, ansi-wl-pprint
   Build-tools:          alex, happy
-  Exposed-modules:      Data.Protobuf.AST
+  Other-modules:        Data.Protobuf.AST
                         Data.Protobuf.Grammar.Parser
                         Data.Protobuf.Grammar.Lexer
                         Data.Protobuf.Types
