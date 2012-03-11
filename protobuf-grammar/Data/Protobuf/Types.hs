@@ -46,6 +46,7 @@ import Data.Function
 
 import Data.Protobuf.AST
 
+import Text.Groom
 
 ----------------------------------------------------------------
 -- Auxillary data types & synonims
@@ -114,8 +115,22 @@ findQualName names (Qualified (q:qs) n) = do
 
 -- | Insert name into set while checking for duplicates
 insertName :: Namespace -> SomeName -> PbMonadE (Namespace)
+insertName (Namespace ns) pkg@(PkgName n ns') =
+  case Map.lookup n ns of
+    Just (PkgName _ m) -> do combined <- mergeNamespaces m ns'
+                             -- liftIO $ print "@@@@@@@@@@@@@@@@"
+                             -- liftIO $ putStrLn $ groom (ns)
+                             -- liftIO $ putStrLn $ groom ns'
+                             -- liftIO $ print "@@@@@@@@@@@@@@@@"
+                             -- liftIO $ putStrLn $ groom combined
+                             -- liftIO $ print "@@@@@@@@@@@@@@@@"
+                             return $ Namespace $ Map.insert n (PkgName n combined) ns
+    Nothing            -> return $ Namespace $ Map.insert n pkg ns
+    _                  -> do oops $ "Duplicate name: " ++ identifier n
+                             return (Namespace ns)
 insertName (Namespace ns) name
   | n `Map.member` ns = do oops $ "Duplicate name: " ++ identifier n
+                             ++ "\n" ++ show ns
                            return (Namespace ns)
   | otherwise         = return $ Namespace $ Map.insert n name ns
   where
