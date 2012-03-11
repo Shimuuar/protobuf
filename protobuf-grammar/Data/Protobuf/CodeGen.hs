@@ -69,13 +69,12 @@ convertDecl (HsMessage (TyName name) fields) =
               Nothing -> qvar "def"
           | HsField _ _ _ defV <- fields ]
       ]
-  , instance_ "Monoid" (tycon name `TyApp` qtycon "Required")
-      [ bind "mempty" =: qvar "def"
-      , let ns1 = patNames "x" fields
+  , instance_ "MessageField" (tycon name `TyApp` qtycon "Required")
+      [ let ns1 = patNames "x" fields
             ns2 = patNames "y" fields
-        in fun "mappend" [ (PApp $ UnQual $ Ident name) (map PVar ns1)
-                         , (PApp $ UnQual $ Ident name) (map PVar ns2)
-                         ]
+        in fun "mergeField" [ (PApp $ UnQual $ Ident name) (map PVar ns1)
+                            , (PApp $ UnQual $ Ident name) (map PVar ns2)
+                            ]
               =: appF (con name)
                       [ app [ qvar "mergeField"
                             , Var (UnQual n1)
@@ -83,6 +82,10 @@ convertDecl (HsMessage (TyName name) fields) =
                             ]
                       | (n1, n2) <- zip ns1 ns2
                       ]
+      ]
+  , instance_ "Monoid" (tycon name `TyApp` qtycon "Required")
+      [ bind "mempty"  =: qvar "def"
+      , bind "mappend" =: qvar "mergeField"
       ]
   , instance_ "Message" (tycon name)
       [ bind "getMessage" =:
