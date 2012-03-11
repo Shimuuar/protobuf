@@ -6,6 +6,7 @@ module Data.Serialize.Protobuf (
   , skipUnknownField
   , getPacked
   , getPbString
+  , getPbEnum
   ) where
 
 import Control.Applicative
@@ -19,6 +20,8 @@ import Data.Serialize.VarInt
 import qualified Data.Sequence as Seq
 import           Data.Sequence   (Seq)
 import Debug.Trace
+
+import Data.Protobuf.Classes
 
 
 getVarInt :: Get Int
@@ -65,3 +68,6 @@ repeatedly = do
   if f
     then return []
     else (:) <$> get <*> repeatedly
+
+getPbEnum :: PbEnum a => Get a
+getPbEnum = toPbEnum <$> getVarInt
