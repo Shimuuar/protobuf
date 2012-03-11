@@ -18,8 +18,19 @@ source-repository head
 
 Library
   Build-Depends:        base >=3 && <5,
-                        array
+                        containers,
+                        mtl > 2,
+                        transformers,
+                        uniplate,
+                        directory,
+                        array,
+                        haskell-src-exts
   Build-tools:          alex, happy
   Exposed-modules:      Data.Protobuf.AST
+                        Data.Protobuf.Grammar.Parser
                         Data.Protobuf.Grammar.Lexer
-     
+                        Data.Protobuf.Types
+                        Data.Protobuf.FileIO
+                        Data.Protobuf.Transform
+                        Data.Protobuf.DataTree
+                        Data.Protobuf.CodeGen
