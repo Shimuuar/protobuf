@@ -135,6 +135,7 @@ convertDecl (HsEnum    (TyName name) fields) =
   , instance_ "Default" (tycon name)
       [ bind "def" =: con (case head fields of { (TyName n,_) -> n })
       ]
+  , instance_ "MessageField" (tycon name) []
   ]
 
 derives = map (\n -> (qname n, [])) []
@@ -152,11 +153,13 @@ recordField (HsField tp name _ _) =
 
     innerType (HsBuiltin     t) = primType t
     innerType (HsUserMessage q) = userType q
-    innerType (HsUserEnum    q) = userType q
+    innerType (HsUserEnum    q) = enumType q
 
     userType (Qualified qs n) = 
       (TyCon $ Qual (modName (qs++[n])) (Ident $ identifier n)) `TyApp` TyVar (Ident "r")
-
+    enumType (Qualified qs n) =
+      (TyCon $ Qual (modName (qs++[n])) (Ident $ identifier n))
+      
     primType PbDouble   = TyCon $ qname "Double"
     primType PbFloat    = TyCon $ qname "Float"
     primType PbInt32    = sint32
@@ -171,7 +174,7 @@ recordField (HsField tp name _ _) =
     primType PbSFixed64 = sint64
     primType PbBool     = TyCon $ qname "Bool"
     primType PbString   = TyCon $ qname "String"
-    primType PbBytes    = TyCon $ qname "Bytestring"
+    primType PbBytes    = TyCon $ qname "ByteString"
 
     sint32 = TyCon $ qname "Int32"
     sint64 = TyCon $ qname "Int64"
