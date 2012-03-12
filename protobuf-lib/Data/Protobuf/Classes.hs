@@ -29,7 +29,7 @@ instance Functor Required where
 
 -- | 
 newtype Val a = Val a
-
+                deriving (Show)
 
 ----------------------------------------------------------------
 -- Type classes

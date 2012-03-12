@@ -75,6 +75,7 @@ go files = do
       mapM dumpPB s4
     -- Convert to haskell
     s5 <- toHaskellTree s4
+    liftIO $ print s5
     liftIO $ do
       putDoc $ red $ text $ "\n\n==== HASKELL ================\n"
       let DataTree q = s5

@@ -18,7 +18,7 @@ import Data.Generics.Uniplate.Data
 import Data.Protobuf.AST
 import Data.Protobuf.Types
 import Data.Protobuf.DataTree
-
+import Debug.Trace
 
 
 ----------------------------------------------------------------
@@ -177,6 +177,8 @@ toTypename _ = throwError "Not a type name"
 -- * Stage 6. Convert AST to haskell representation
 toHaskellTree :: [ProtobufFile Namespace] -> PbMonad DataTree
 toHaskellTree pb =
+  trace "ASD" $ 
+  traceShow (length decls)
   DataTree <$> runCollide (mconcat decls)
   where
     decls =  [ enumToHask    e | e <- universeBi pb ]

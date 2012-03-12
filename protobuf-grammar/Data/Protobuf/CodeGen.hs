@@ -11,6 +11,7 @@ import Data.Protobuf.AST
 import Data.Protobuf.DataTree
 import Data.Generics.Uniplate.Data
 
+import Language.Haskell.Exts.Pretty (prettyPrint)
 import Language.Haskell.Exts.Syntax
 import Debug.Trace
 
@@ -62,8 +63,9 @@ convertDecl (HsMessage (TyName name) fields) =
   [ DataDecl s DataType [] (Ident name) [KindedVar (Ident "r") (KindStar `KindFn` KindStar)]
       [ QualConDecl s [] [] $ RecDecl (Ident name) (map recordField fields)
       ]
-      derives
+      []
   , DerivDecl s [] (qname "Show") [ tycon name `TyApp` qtycon "Required" ]
+  , DerivDecl s [] (qname "Show") [ tycon name `TyApp` qtycon "Val" ]
   , instance_ "Default" (tycon name `TyApp` qtycon "Required")
       [ bind "def" =: foldl App (con name)
           [ case defV of
@@ -119,6 +121,8 @@ convertDecl (HsMessage (TyName name) fields) =
           (app [ var "loop"
                , qvar "mempty"
                ] )
+      , checkReq name fields
+      , bind "putMessage" =: qvar "undefined"
       ]
   ]
 convertDecl (HsEnum    (TyName name) fields) =
@@ -146,7 +150,43 @@ convertDecl (HsEnum    (TyName name) fields) =
 derives = map (\n -> (qname n, [])) []
   -- [ "Show", "Eq" ]
 
+checkReq name fields =
+  fun "checkReq"  [PApp (UnQual (Ident name)) (map PVar ns)] =:
+    foldl (\e1 e2 -> app [ qvar "ap", e1, e2]) 
+      (app [ qvar "return", var name ])
+      (zipWith check ns fields)
+  where
+    ns = patNames "x" fields
+    -- Repeated
+    check n (HsField (HsSeq (HsBuiltin _) _) _ _ _)        
+      = app [ qvar "return", Var $ UnQual n ]
+    check n (HsField (HsSeq (HsUserEnum _) _) _ _ _)        
+      = app [ qvar "return", Var $ UnQual n ]
+    check n (HsField (HsSeq (HsUserMessage _) _) _ _ _)        
+      = app [ qvar "mapM", qvar "checkReq", Var $ UnQual n ]
+    -- Optional
+    check n (HsField (HsMaybe (HsBuiltin _)) _ _ (Just o)) 
+      = app [ qvar "checkMaybe", lit o, Var (UnQual n)]
+    check n (HsField (HsMaybe (HsUserEnum _)) _ _ (Just o)) 
+      = app [ qvar "checkMaybe", lit o, Var (UnQual n)]
+        
+    check n (HsField (HsMaybe (HsBuiltin _)) _ _ _)
+      = app [ qvar "return", Var $ UnQual n ]      
+    check n (HsField (HsMaybe (HsUserEnum _)) _ _ _)
+      = app [ qvar "return", Var $ UnQual n ]
 
+        
+    check n (HsField (HsMaybe _) _ _ _)
+      = app [ qvar "checkMaybeMsg"
+            , Var (UnQual n)]
+    -- Required
+    check n (HsField (HsReq (HsBuiltin _)) _ _ _)        
+      = app [ qvar "checkRequired"  , Var (UnQual n) ]
+    check n (HsField (HsReq (HsUserEnum _)) _ _ _)        
+      = app [ qvar "checkRequired"  , Var (UnQual n) ]
+    check n (HsField (HsReq (HsUserMessage _)) _ _ _)        
+      = app [ qvar "checkRequiredMsg"  , Var (UnQual n) ]
+    
 -- | Single fields of record
 recordField :: HsField -> ([Name], BangType)
 recordField (HsField tp name _ _) =
