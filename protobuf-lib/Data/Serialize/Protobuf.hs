@@ -20,7 +20,7 @@ import Data.Serialize.Get
 import Data.Serialize.Put
 import Data.Serialize.VarInt
 import qualified Data.Sequence as Seq
-import           Data.Sequence   (Seq)
+import           Data.Sequence   (Seq,(|>))
 import Debug.Trace
 
 import Data.Protobuf.Classes
@@ -57,7 +57,17 @@ skipUnknownField (WireTag _ t) =
 getPacked :: Get a -> Get (Seq a)
 getPacked getter = do
   n <- getVarInt
-  Seq.fromList `fmap` replicateM n getter
+  isolate n $ getSeq Seq.empty getter
+  
+getSeq :: Seq a -> Get a -> Get (Seq a)
+getSeq s getter = do 
+  f <- isEmpty 
+  if f 
+    then return s
+    else do x <- getter
+            getSeq (s |> x) getter
+
+
 
 getPbString :: Get String
 getPbString = do
