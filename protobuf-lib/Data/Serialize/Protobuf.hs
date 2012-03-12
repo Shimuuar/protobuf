@@ -8,6 +8,7 @@ module Data.Serialize.Protobuf (
   , getPbString
   , getPbEnum
   , getPbBytestring
+  , getDelimMessage
   ) where
 
 import Control.Applicative
@@ -51,7 +52,7 @@ skipUnknownField (WireTag _ t) =
     3 -> fail "Groups are not supported"
     4 -> fail "Groups are not supported"
     5 -> skip 4 
-    _ -> fail "Bad wire tag"
+    _ -> fail ("Bad wire tag: " ++ show t)
 
 getPacked :: Get a -> Get (Seq a)
 getPacked getter = do
@@ -75,3 +76,8 @@ getPbEnum = toPbEnum <$> getVarInt
 
 getPbBytestring :: Get ByteString
 getPbBytestring = getByteString =<< getVarInt
+
+getDelimMessage :: Message m => Get (m Required)
+getDelimMessage = do
+  n <- getVarInt
+  isolate n $ getMessage

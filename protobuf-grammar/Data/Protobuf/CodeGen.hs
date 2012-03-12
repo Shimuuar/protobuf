@@ -22,6 +22,7 @@ convert (qs, msg) =
                       , Ident "NoImplicitPrelude"
                       , Ident "FlexibleInstances"
                       , Ident "KindSignatures"
+                      , Ident "StandaloneDeriving"
                       ] ]
    Nothing Nothing
    -- Imports
@@ -62,6 +63,7 @@ convertDecl (HsMessage (TyName name) fields) =
       [ QualConDecl s [] [] $ RecDecl (Ident name) (map recordField fields)
       ]
       derives
+  , DerivDecl s [] (qname "Show") [ tycon name `TyApp` qtycon "Required" ]
   , instance_ "Default" (tycon name `TyApp` qtycon "Required")
       [ bind "def" =: foldl App (con name)
           [ case defV of
@@ -206,9 +208,19 @@ caseField n i (HsField ty name (FieldTag tag) _) =
     )
     (BDecls [])
   -- Oops! wrong field type
-  , Alt s (PApp (qname "WireTag") [plit tag, PWildCard])
+  , Alt s (PApp (qname "WireTag") [plit tag, pvar "zzz"])
     (UnGuardedAlt $ app [ qvar "fail"
-                        , lit "Invalid tag!"
+                        , app [ qvar "mconcat"
+                              , List 
+                                [ lit "Invalid tag! "
+                                , app [ qvar "show" , var "zzz" ]
+                                , lit " expected "
+                                , lit (show typeTag)
+                                , lit (" ["++name++"]")
+                                , lit ("tag="++show tag++" " )
+                                , lit $ show ty
+                                ]
+                              ]
                         ]
     )
     (BDecls [])
@@ -253,7 +265,7 @@ caseField n i (HsField ty name (FieldTag tag) _) =
                                   ]
     getPacked _ = error "Impossible happened. Invalid packed option"
 
-    getField (HsUserMessage _) = qvar "getMessage"
+    getField (HsUserMessage _) = qvar "getDelimMessage"
     getField (HsUserEnum    _) = qvar "getPbEnum"
     getField (HsBuiltin     t) = getPrim t
 
