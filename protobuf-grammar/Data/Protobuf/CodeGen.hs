@@ -300,8 +300,11 @@ caseField n i (HsField ty name (FieldTag tag) _) =
       HsSeq t True -> getPacked t
       HsSeq t _    -> qvar "singleton" .<$>. getField t
 
-    getPacked (HsBuiltin t) = app [ qvar "getPacked"
-                                  , getPrim t
+    getPacked (HsBuiltin t) = app [ qvar "label"
+                                  , lit $  name ++ "[packed]"
+                                  , app [ qvar "getPacked"
+                                        , getPrim t
+                                        ]
                                   ]
     getPacked _ = error "Impossible happened. Invalid packed option"
 
