@@ -305,7 +305,10 @@ caseField n i (HsField ty name (FieldTag tag) _) =
                                   ]
     getPacked _ = error "Impossible happened. Invalid packed option"
 
-    getField (HsUserMessage _) = qvar "getDelimMessage"
+    getField (HsUserMessage _) = app [ qvar "label" 
+                                     , lit  name
+                                     , qvar "getDelimMessage"
+                                     ]
     getField (HsUserEnum    _) = qvar "getPbEnum"
     getField (HsBuiltin     t) = getPrim t
 
