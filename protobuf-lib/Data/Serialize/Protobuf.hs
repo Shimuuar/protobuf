@@ -1,8 +1,9 @@
 -- | Define utils for serializtion of protobuf message
-module Data.Serialize.Protobuf ( 
-    -- * Wiretag
+module Data.Serialize.Protobuf (
+    -- * Data types
     WireTag(..)
   , getWireTag
+    -- * Getters
   , skipUnknownField
   , getPacked
   , getPbString
@@ -25,24 +26,26 @@ import Debug.Trace
 
 import Data.Protobuf.Classes
 
-
-getVarInt :: Get Int
-getVarInt = fromIntegral <$> getVarInt64
-
+-- | Wire tag
 data WireTag = WireTag {-# UNPACK #-} !Int {-# UNPACK #-} !Int
                deriving Show
-
 
 getWireTag :: Get WireTag
 getWireTag = do
   i <- getVarInt
   return $! WireTag (i `shiftR` 3) (0x07 .&. i)
 
+
+-- | Get base-128 encoded int
+getVarInt :: Get Int
+getVarInt = fromIntegral <$> getVarWord64
+
 getSequence :: Get a -> Get [a]
 getSequence getter = do
   n <- getVarInt
   replicateM n getter
 
+-- | Skip unknow field
 skipUnknownField :: WireTag -> Get ()
 skipUnknownField (WireTag _ t) =
   case t of
@@ -51,42 +54,48 @@ skipUnknownField (WireTag _ t) =
     2 -> skip =<< getVarInt
     3 -> fail "Groups are not supported"
     4 -> fail "Groups are not supported"
-    5 -> skip 4 
+    5 -> skip 4
     _ -> fail ("Bad wire tag: " ++ show t)
 
+-- | Get packed sequence
 getPacked :: Get a -> Get (Seq a)
 getPacked getter = do
   n <- getVarInt
   isolate n $ getSeq Seq.empty getter
-  
+
+-- Worker for getPacked
 getSeq :: Seq a -> Get a -> Get (Seq a)
-getSeq s getter = do 
-  f <- isEmpty 
-  if f 
+getSeq s getter = do
+  f <- isEmpty
+  if f
     then return s
     else do x <- getter
             getSeq (s |> x) getter
 
+-- | Get protocol buffers enumeration
+getPbEnum :: PbEnum a => Get a
+getPbEnum = toPbEnum <$> getVarInt
+{-# INLINE getPbEnum #-}
 
-
+-- | Get PB encoded string
 getPbString :: Get String
 getPbString = do
   n <- getVarInt
-  isolate n $ repeatedly
+  isolate n $ getChars
 
-repeatedly :: Get String
-repeatedly = do
+-- worker for getPbString
+getChars :: Get String
+getChars = do
   f <- isEmpty
   if f
     then return []
     else (:) <$> get <*> repeatedly
 
-getPbEnum :: PbEnum a => Get a
-getPbEnum = toPbEnum <$> getVarInt
-
+-- | Get PB encoded bytestring
 getPbBytestring :: Get ByteString
 getPbBytestring = getByteString =<< getVarInt
 
+-- | Decode delimited message
 getDelimMessage :: Message m => Get (m Required)
 getDelimMessage = do
   n <- getVarInt

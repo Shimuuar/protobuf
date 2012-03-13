@@ -1,5 +1,13 @@
+-- |
+--  API for generated code.
+--
+-- * Required fields are most tricky. Since 
+--
+-- * Optionl fields are represented as 'Maybe'
+--
+-- * Repeated fields are represented as 'Seq' from Data.Sequence.
 module Data.Protobuf.Classes (
-    -- * Data
+    -- * Data types
     Required(..)
   , Val(..)
     -- * Classes
@@ -17,7 +25,8 @@ import Data.Sequence      (Seq)
 import Data.Serialize.Get (Get)
 import Data.Serialize.Put (Put)
 
--- | Maybe-like data type for tracking whether field is set or not.
+-- | Maybe-like data type for tracking whether required field is set
+--   or not.
 data Required a 
   = Present a
   | NotSet
@@ -27,7 +36,7 @@ instance Functor Required where
   fmap f (Present x) = Present (f x)
   fmap _ NotSet      = NotSet
 
--- | 
+-- | Wrapper for requieed type after checking.
 newtype Val a = Val a
                 deriving (Show)
 
@@ -62,6 +71,7 @@ class Message a where
 ----------------------------------------------------------------
 -- Implementation type classes
 
+-- | This is implementation specific type class for merging field.
 class MessageField f where
   mergeField :: f -> f -> f
   mergeField _ x = x
