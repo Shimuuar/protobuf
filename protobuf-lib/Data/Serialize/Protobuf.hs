@@ -89,7 +89,7 @@ getChars = do
   f <- isEmpty
   if f
     then return []
-    else (:) <$> get <*> repeatedly
+    else (:) <$> get <*> getChars
 
 -- | Get PB encoded bytestring
 getPbBytestring :: Get ByteString
