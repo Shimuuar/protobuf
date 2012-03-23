@@ -1,5 +1,21 @@
--- | Variable width integer encoding which are used in google protobuf
-module Data.Serialize.VarInt where
+-- | Variable width integer encoding which are used in google protobuf.
+module Data.Serialize.VarInt ( 
+    -- * Unsigned ints
+    getVarWord32
+  , getVarWord64
+  , putVarWord32
+  , putVarWord64
+    -- * Signed ints
+  , getVarInt32
+  , getVarInt64
+  , putVarInt32
+  , putVarInt64
+    -- * Zig-zag encoded ints
+  , getZigzag32
+  , getZigzag64
+  , putZigzag32
+  , putZigzag64
+  ) where
 
 import Control.Applicative
 
@@ -38,43 +54,74 @@ putVarWord n
 -- Concrete types
 ----------------------------------------------------------------
 
+-- | Decode 32-bit 128-base unsigned integer.
 getVarWord32 :: Get Word32
 getVarWord32 = getVarWord
 
+-- | Encode 32-bit 128-base unsigned integer.
 putVarWord32 :: Word32 -> Put
 putVarWord32 = putVarWord
 
-
+-- | Decode 64-bit 128-base unsigned integer.
 getVarWord64 :: Get Word64
 getVarWord64 = getVarWord
 
+-- | Encode 64-bit 128-base unsigned integer.
 putVarWord64 :: Word64 -> Put
 putVarWord64 = putVarWord
 
 
+
+-- | Decode 32-bit 128-base signed integer.
 getVarInt32 :: Get Int32
 getVarInt32 = fromIntegral <$> getVarWord32
 
+-- | Encode 32-bit 128-base signed integer.
 putVarInt32 :: Int32 -> Put
 putVarInt32 = putVarWord32 . fromIntegral
 
-
+-- | Decode 32-bit 128-base signed integer.
 getVarInt64 :: Get Int64
 getVarInt64 = fromIntegral <$> getVarWord64
 
+-- | Encode 32-bit 128-base signed integer.
 putVarInt64 :: Int64 -> Put
 putVarInt64 = putVarWord64 . fromIntegral
 
 
--- FIXME!!!
+
+-- | Decode zigzag encoded 32-bit integer.
 getZigzag32 :: Get Int32
-getZigzag32 = fromIntegral <$> getVarWord32
+getZigzag32 = dec32 <$> getVarWord32
 
+-- | Encode zigzag encoded 32-bit integer.
 putZigzag32 :: Int32 -> Put
-putZigzag32 = putVarWord32 . fromIntegral
+putZigzag32 = putVarWord32 . enc32
 
+-- | Decode zigzag encoded 32-bit integer.
 getZigzag64 :: Get Int64
-getZigzag64 = fromIntegral <$> getVarWord64
+getZigzag64 = dec64 <$> getVarWord64
 
+-- | Encode zigzag encoded 32-bit integer.
 putZigzag64 :: Int64 -> Put
-putZigzag64 = putVarWord64 . fromIntegral
+putZigzag64 = putVarWord64 . enc64
+
+
+dec32 :: Word32 -> Int32
+dec32 n 
+  | odd n  = complement (fromIntegral $ n `shiftR` 1)
+  | even n = (fromIntegral $ n `shiftR` 1)
+
+dec64 :: Word64 -> Int64
+dec64 n 
+  | odd n  = complement (fromIntegral $ n `shiftR` 1)
+  | even n = (fromIntegral $ n `shiftR` 1)
+
+
+enc32 :: Int32 -> Word32
+enc32 n =   (fromIntegral $ n `shiftL` 1) 
+      `xor` (fromIntegral $ n `shiftR` 31)
+
+enc64 :: Int64 -> Word64
+enc64 n =   (fromIntegral $ n `shiftL` 1) 
+      `xor` (fromIntegral $ n `shiftR` 63)
