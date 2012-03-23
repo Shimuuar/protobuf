@@ -68,11 +68,9 @@ import Data.Monoid              (Monoid(..))
 import Data.Sequence            (Seq,singleton)
 import Data.ByteString          (ByteString)
 import Data.Traversable         (mapM)
-import Data.Serialize.IEEE754
 
 import Data.Protobuf.Classes    as P'
-import Data.Serialize.Get       as P'
-import Data.Serialize.Put       as P'
+import Data.Serialize           as P'
 import Data.Serialize.Protobuf  as P'
 import Data.Serialize.VarInt
 import Prelude hiding (mapM)
