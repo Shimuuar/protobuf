@@ -100,7 +100,7 @@ convertDecl (HsMessage (TyName name) fields) =
                    ( Do [ pvar "done" <-- qvar "isEmpty"
                         , Qualifier $ If (var "done") 
                             (app [ qvar "return" , var "v" ])
-                            (Do [ pvar "wt" <-- qvar "getWireTag"
+                            (Do [ pvar "wt" <-- qvar "get"
                                 , Qualifier $
                                   Case (var "wt") $ 
                                    concat [ caseField f | f <- fields]
