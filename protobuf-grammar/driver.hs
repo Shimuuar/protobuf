@@ -8,8 +8,6 @@ import Data.List
 import qualified Data.Map as Map
 import Text.Groom
 import Text.PrettyPrint.ANSI.Leijen
-import qualified Data.Foldable    as F
-import qualified Data.Traversable as T
 import Language.Haskell.Exts.Pretty (prettyPrint)
 import System.Directory
 import System.Environment
@@ -29,18 +27,17 @@ dumpPB pb = do
 dumpBundle :: Show a => Bundle a -> IO ()
 dumpBundle (Bundle{..}) = do
   putStrLn "\n\n\n\n"
-  let line = putDoc $ red $ text "================================================================\n"
-  line
+  let ln = putDoc $ red $ text "================================================================\n"
+  ln
   mapM_ print $ Map.toList importMap
-  line
+  ln
   forM_ (Map.toList packageMap) $ \(path, pb) -> do
     putDoc $
       blue (text "==== <<< ") <>
       green (text path) <>
       blue (text " >>> ================\n")
     dumpPB pb
-    -- putDoc $ blue $ text "----------------------------------------------------------------\n"
-    -- putStrLn (groom pay)
+
 
 runPbMonad m
   = flip runReaderT (PbContext ["."])
@@ -55,7 +52,8 @@ go files = do
     applyBundleM_ checkLabels s0
     liftIO $ dumpBundle s0
     --
-    let s0' = applyBundle mangleNames s0
+    let s0' = applyBundle mangleNames 
+            $ applyBundle sortLabels s0
     liftIO $ dumpBundle s0'
     -- Stage 2
     s1 <- applyBundleM removePackage s0'
