@@ -2,7 +2,6 @@
 module Data.Serialize.Protobuf (
     -- * Data types
     WireTag(..)
-  , getWireTag
     -- * Getters
   , skipUnknownField
   , getPacked
@@ -29,15 +28,19 @@ import Data.Protobuf.Classes
 data WireTag = WireTag {-# UNPACK #-} !Int {-# UNPACK #-} !Int
                deriving Show
 
-getWireTag :: Get WireTag
-getWireTag = do
-  i <- getVarInt
-  return $! WireTag (i `shiftR` 3) (0x07 .&. i)
+instance Serialize WireTag where
+  get = do
+    i <- getVarInt
+    return $! WireTag (i `shiftR` 3) (0x07 .&. i)
+  put (WireTag t w) = putVarInt $ (t `shiftL` 3) .|. w
 
 
 -- | Get base-128 encoded int
 getVarInt :: Get Int
 getVarInt = fromIntegral <$> getVarWord64
+
+putVarInt :: Int -> Put
+putVarInt = putVarWord64 . fromIntegral 
 
 -- | Skip unknow field
 skipUnknownField :: WireTag -> Get ()
