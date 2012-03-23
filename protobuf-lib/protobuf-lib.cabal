@@ -17,6 +17,7 @@ source-repository head
   location: http://bitbucket.org/Shimuuar/protobuf
 
 Library
+  ghc-options:          -Wall
   Build-Depends:        base >=3 && <5,
                         containers,
                         bytestring,

@@ -39,11 +39,6 @@ getWireTag = do
 getVarInt :: Get Int
 getVarInt = fromIntegral <$> getVarWord64
 
-getSequence :: Get a -> Get [a]
-getSequence getter = do
-  n <- getVarInt
-  replicateM n getter
-
 -- | Skip unknow field
 skipUnknownField :: WireTag -> Get ()
 skipUnknownField (WireTag _ t) =
