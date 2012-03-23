@@ -11,9 +11,9 @@ import Data.Protobuf.AST
 import Data.Protobuf.DataTree
 import Data.Generics.Uniplate.Data
 
-import Language.Haskell.Exts.Pretty (prettyPrint)
-import Language.Haskell.Exts.Syntax
-import Debug.Trace
+import Language.Haskell.Exts.Syntax as Hask
+
+
 
 -- | Convert module into the haskell code to be dumped
 convert :: ([Identifier TagType],HsModule) -> Module
@@ -40,6 +40,7 @@ convert (qs, msg) =
    -- Code
    (convertDecl msg)
 
+-- Generate import list
 importList :: HsModule -> [ImportDecl]
 importList = map toImport . concatMap pick . universeBi
   where
@@ -102,7 +103,7 @@ convertDecl (HsMessage (TyName name) fields) =
                             (Do [ pvar "wt" <-- qvar "getWireTag"
                                 , Qualifier $
                                   Case (var "wt") $ 
-                                   concat [ caseField (length fields) i f | (i,f) <- enum fields]
+                                   concat [ caseField f | f <- fields]
                                    ++ [ PWildCard -->
                                          Do [ Qualifier $ app [ qvar "skipUnknownField" 
                                                               , var  "wt" ]
@@ -144,9 +145,8 @@ convertDecl (HsEnum    (TyName name) fields) =
   , instance_ "MessageField" (tycon name) []
   ]
 
-derives = map (\n -> (qname n, [])) []
-  -- [ "Show", "Eq" ]
-
+-- Generate checkReq function
+checkReq :: String -> [HsField] -> Decl
 checkReq name fields =
   fun "checkReq"  [PApp (UnQual (Ident name)) (map PVar ns)] =:
     foldl (\e1 e2 -> app [ qvar "ap", e1, e2]) 
@@ -223,8 +223,8 @@ recordField (HsField tp name _ _) =
     uint32 = TyCon $ qname "Word32"
     uint64 = TyCon $ qname "Word64"
 
-
-caseField n i (HsField ty name (FieldTag tag) _) =
+caseField :: HsField -> [Alt]
+caseField (HsField ty name (FieldTag tag) _) =
   -- We have found tag
   [ (PApp (qname "WireTag") [plit tag, plit typeTag]) -->
      Do [ pvar "f" <-- getter
@@ -249,12 +249,11 @@ caseField n i (HsField ty name (FieldTag tag) _) =
         ]
   ]
   where
-    pnames = patNames "f" [1..n]
     -- Type tags
     typeTag = case ty of
       HsReq   t      -> innerTag t
       HsMaybe t      -> innerTag t
-      HsSeq   t True -> lenDelim
+      HsSeq   _ True -> lenDelim
       HsSeq   t _    -> innerTag t
 
     innerTag (HsUserMessage _) = lenDelim
@@ -327,23 +326,27 @@ fixed32  = 5
 -- Helpers
 ----------------------------------------------------------------
 
+-- Get a module name
 modName :: [Identifier TagType] -> ModuleName
 modName = ModuleName . intercalate "." . map identifier
 
-
+-- Null location
 s :: SrcLoc
 s =  SrcLoc "" 0 0
 
-
+-- Get qualified name
+qname :: String -> QName
 qname = Qual (ModuleName "P'") . Ident
 
-var,qvar,con,qcon :: String -> Exp
+-- Shorhands for variables, constructors and type constructors
+var,qvar,con :: String -> Exp
 var    = Var . UnQual . Ident
 qvar   = Var . qname
 con    = Con . UnQual . Ident
-qcon   = Con . qname
+tycon, qtycon :: String -> Hask.Type
 tycon  = TyCon . UnQual . Ident
 qtycon = TyCon . qname
+pvar :: String -> Pat
 pvar   = PVar . Ident
 
 app :: [Exp] -> Exp
@@ -355,20 +358,34 @@ appF   = foldl  App
 (.<$>.) :: Exp -> Exp -> Exp
 f .<$>. g = app [ qvar "fmap" , f , g ]
 
+instance_ :: String -> Hask.Type -> [Decl] -> Decl
 instance_ cl ty decls =
   InstDecl s [] (qname cl) [ty] $ map InsDecl decls
 
+fun :: String -> [Pat] -> (String,[Pat])
 fun  = (,)
+
+bind :: String -> (String,[Pat])
 bind = flip fun []
+
+-- Let binding
+let_ :: [Decl] -> Exp -> Exp
 let_ xs e = Let (BDecls xs) e
 
+-- Shorthand for bind in do block
+(<--) :: Pat -> Exp -> Stmt
 p <-- e = Generator s p e
 
+-- Shorthand for clause in case alternative
+(-->) :: Pat -> Exp -> Alt
 p --> e = Alt s p (UnGuardedAlt e) (BDecls [])
 
-(name,pats) =: exp = FunBind [ Match s (Ident name) pats Nothing (UnGuardedRhs exp) (BDecls []) ]
+(=:) :: (String, [Pat]) -> Exp -> Decl
+(name,pats) =: expr = FunBind [ Match s (Ident name) pats Nothing (UnGuardedRhs expr) (BDecls []) ]
 
-patNames pref xs = [ Ident $ pref ++ show i | (i,_) <- zip [1..] xs ]
+-- list of variable names for patters
+patNames :: String -> [a] -> [Name]
+patNames pref xs = [ Ident $ pref ++ show i | (i,_) <- zip [1::Integer .. ] xs ]
 
 
 
@@ -392,10 +409,8 @@ instance LiteralVal Rational   where
   plit = PLit . Frac
 
 instance LiteralVal OptionVal where
-  lit (OptString s) = lit s
+  lit (OptString a) = lit a
   lit (OptBool   b) = lit b
   lit (OptInt    i) = lit i
   lit (OptReal   r) = lit r
   plit = error "UNIMPLEMENTED"
-
-enum = zip [0..]
