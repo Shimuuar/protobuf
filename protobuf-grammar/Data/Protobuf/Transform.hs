@@ -1,5 +1,16 @@
 -- | Transofrmation of protobug AST
-module Data.Protobuf.Transform where
+module Data.Protobuf.Transform (
+    -- * Validation
+    checkLabels
+    -- * Transformations
+  , sortLabels
+  , mangleNames
+  , removePackage
+  , buildNamespace
+  , resolveImports
+  , resolveTypeNames
+  , toHaskellTree
+  ) where
 
 import Control.Applicative
 import Control.Monad
@@ -9,6 +20,7 @@ import Control.Monad.Error
 import Data.Map        ((!))
 import Data.Char
 import Data.Data                 (Data)
+import Data.Ord
 import Data.List
 import Data.Monoid
 
@@ -23,6 +35,7 @@ import Debug.Trace
 ----------------------------------------------------------------
 -- Validation
 ----------------------------------------------------------------
+
 
 -- | Check that there are no duplicate label numbers
 checkLabels :: Data a => ProtobufFile a -> PbMonad ()
@@ -49,8 +62,8 @@ checkLabels pb = collectErrors $ do
 sortLabels :: Data a => ProtobufFile a -> ProtobufFile a
 sortLabels = transformBi (sortBy $ comparing tag)
   where
-    tag (MessageField (Field _ _ _ (FieldTag t))) = t
-    tag _                                         = -1
+    tag (MessageField (Field _ _ _ (FieldTag t) _)) = t
+    tag _                                           = -1
 
 
 
@@ -122,7 +135,7 @@ collectFieldNames :: [Identifier TagType] -> MessageField -> NameCollector Messa
 collectFieldNames path f@(MessageField (Field _ _ n _ _)) =
   f <$ addName (FieldName $ Identifier $ identifier n)
 collectFieldNames path (Nested m) =
-  Nested <$> collectMessageNames path 
+  Nested <$> collectMessageNames path m
 collectFieldNames path (MessageEnum e) =
   MessageEnum <$> collectEnumNames path e
 collectFieldNames _ x = return x
