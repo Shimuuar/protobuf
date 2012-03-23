@@ -120,7 +120,9 @@ convertDecl (HsMessage (TyName name) fields) =
                , qvar "mempty"
                ] )
       , checkReq name fields
-      , bind "putMessage" =: qvar "undefined"
+      , let ns = patNames "x" fields
+        in fun "putMessage" [PApp (UnQual $ Ident name) (map PVar ns)] =:
+             Do [ Qualifier e | e <- zipWith putMessage ns fields ]
       ]
   ]
 convertDecl (HsEnum    (TyName name) fields) =
@@ -314,6 +316,38 @@ caseField (HsField ty name (FieldTag tag) _) =
       PbString   -> qvar "getPbString"
       PbBytes    -> qvar "getPbBytestring"
 
+putMessage :: Name -> HsField -> Exp
+putMessage nm (HsField ty _ (FieldTag tag) _) = 
+  Do  [ Qualifier $ app [ qvar "put" 
+                        , app [ qcon "WireTag"
+                              , lit tag
+                              , lit (1 :: Integer)
+                              ]
+                        ]
+      ]
+  -- case ty of
+  --   HsBuiltin pt -> 
+  where
+    -- putExpr
+    -- put for primitive types
+    
+    putPrim t = case t of
+      PbDouble   -> qvar "putFloat64le"
+      PbFloat    -> qvar "putFloat32le"
+      PbInt32    -> qvar "putVarInt32"
+      PbInt64    -> qvar "putVarInt64"
+      PbUInt32   -> qvar "putVarWord32"
+      PbUInt64   -> qvar "putVarWord64"
+      PbSInt32   -> qvar "putZigzag32"
+      PbSInt64   -> qvar "putZigzag64"
+      PbFixed32  -> qvar "putWord32le"
+      PbFixed64  -> qvar "putWord64le"
+      PbSFixed32 -> qvar "fromIntegral" .<$>. qvar "putWord32le"
+      PbSFixed64 -> qvar "fromIntegral" .<$>. qvar "putWord64le"
+      PbBool     -> qvar "putVarBool"
+      PbString   -> qvar "putPbString"
+      PbBytes    -> qvar "putPbBytestring"
+
 ----------------------------------------------------------------
 
 varint, fixed32, fixed64, lenDelim :: Integer
@@ -339,10 +373,11 @@ qname :: String -> QName
 qname = Qual (ModuleName "P'") . Ident
 
 -- Shorhands for variables, constructors and type constructors
-var,qvar,con :: String -> Exp
+var,qvar,con,qcon :: String -> Exp
 var    = Var . UnQual . Ident
 qvar   = Var . qname
 con    = Con . UnQual . Ident
+qcon   = Con . qname
 tycon, qtycon :: String -> Hask.Type
 tycon  = TyCon . UnQual . Ident
 qtycon = TyCon . qname
