@@ -103,15 +103,12 @@ convertDecl (HsMessage (TyName name) fields) =
                                 , Qualifier $
                                   Case (var "wt") $ 
                                    concat [ caseField (length fields) i f | (i,f) <- enum fields]
-                                   ++ [ Alt s PWildCard 
-                                        (UnGuardedAlt $
+                                   ++ [ PWildCard -->
                                          Do [ Qualifier $ app [ qvar "skipUnknownField" 
                                                               , var  "wt" ]
                                             , Qualifier $ app [ var "loop"
                                                               , var "v" ]
                                             ]
-                                        )
-                                        (BDecls [])
                                       ]
                                 ]
                             )
@@ -229,8 +226,7 @@ recordField (HsField tp name _ _) =
 
 caseField n i (HsField ty name (FieldTag tag) _) =
   -- We have found tag
-  [ Alt s (PApp (qname "WireTag") [plit tag, plit typeTag])
-    (UnGuardedAlt $
+  [ (PApp (qname "WireTag") [plit tag, plit typeTag]) -->
      Do [ pvar "f" <-- getter
         , Qualifier $ app [ var "loop"
                           , RecUpdate (var "v") [
@@ -245,25 +241,12 @@ caseField n i (HsField ty name (FieldTag tag) _) =
                             ]
                           ]
         ]
-    )
-    (BDecls [])
   -- Oops! wrong field type
-  , Alt s (PApp (qname "WireTag") [plit tag, pvar "zzz"])
-    (UnGuardedAlt $ app [ qvar "fail"
-                        , app [ qvar "mconcat"
-                              , List 
-                                [ lit "Invalid tag! "
-                                , app [ qvar "show" , var "zzz" ]
-                                , lit " expected "
-                                , lit (show typeTag)
-                                , lit (" ["++name++"]")
-                                , lit ("tag="++show tag++" " )
-                                , lit $ show ty
-                                ]
-                              ]
-                        ]
-    )
-    (BDecls [])
+  , PApp (qname "WireTag") [plit tag, PWildCard] -->
+    app [ qvar "fail" , app [ qvar "fail"
+                            , lit "Invalid type tag encountered!"
+                            ]
+        ]
   ]
   where
     pnames = patNames "f" [1..n]
@@ -354,6 +337,7 @@ s =  SrcLoc "" 0 0
 
 qname = Qual (ModuleName "P'") . Ident
 
+var,qvar,con,qcon :: String -> Exp
 var    = Var . UnQual . Ident
 qvar   = Var . qname
 con    = Con . UnQual . Ident
@@ -361,9 +345,14 @@ qcon   = Con . qname
 tycon  = TyCon . UnQual . Ident
 qtycon = TyCon . qname
 pvar   = PVar . Ident
+
+app :: [Exp] -> Exp
 app    = foldl1 App
+
+appF :: Exp -> [Exp] -> Exp
 appF   = foldl  App
 
+(.<$>.) :: Exp -> Exp -> Exp
 f .<$>. g = app [ qvar "fmap" , f , g ]
 
 instance_ cl ty decls =
@@ -375,9 +364,13 @@ let_ xs e = Let (BDecls xs) e
 
 p <-- e = Generator s p e
 
+p --> e = Alt s p (UnGuardedAlt e) (BDecls [])
+
 (name,pats) =: exp = FunBind [ Match s (Ident name) pats Nothing (UnGuardedRhs exp) (BDecls []) ]
 
 patNames pref xs = [ Ident $ pref ++ show i | (i,_) <- zip [1..] xs ]
+
+
 
 class LiteralVal l where
   lit  :: l -> Exp
