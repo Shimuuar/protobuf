@@ -46,7 +46,7 @@ import Data.Function
 
 import Data.Protobuf.AST
 
-import Text.Groom
+
 
 ----------------------------------------------------------------
 -- Auxillary data types & synonims
@@ -118,12 +118,6 @@ insertName :: Namespace -> SomeName -> PbMonadE (Namespace)
 insertName (Namespace ns) pkg@(PkgName n ns') =
   case Map.lookup n ns of
     Just (PkgName _ m) -> do combined <- mergeNamespaces m ns'
-                             -- liftIO $ print "@@@@@@@@@@@@@@@@"
-                             -- liftIO $ putStrLn $ groom (ns)
-                             -- liftIO $ putStrLn $ groom ns'
-                             -- liftIO $ print "@@@@@@@@@@@@@@@@"
-                             -- liftIO $ putStrLn $ groom combined
-                             -- liftIO $ print "@@@@@@@@@@@@@@@@"
                              return $ Namespace $ Map.insert n (PkgName n combined) ns
     Nothing            -> return $ Namespace $ Map.insert n pkg ns
     _                  -> do oops $ "Duplicate name: " ++ identifier n

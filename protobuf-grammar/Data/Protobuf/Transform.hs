@@ -45,6 +45,15 @@ checkLabels pb = collectErrors $ do
 -- Normalization
 ----------------------------------------------------------------
 
+-- Sort fields in message declarations by tag
+sortLabels :: Data a => ProtobufFile a -> ProtobufFile a
+sortLabels = transformBi (sortBy $ comparing tag)
+  where
+    tag (MessageField (Field _ _ _ (FieldTag t))) = t
+    tag _                                         = -1
+
+
+
 ----------------------------------------------------------------
 -- * Stage 1. Mangle all names. No attempt is made to handle possible
 --   name clashes
