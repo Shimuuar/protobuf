@@ -64,7 +64,7 @@ class Message a where
   -- | Check that all required fields are present
   checkReq   :: Monad m => a Required -> m (a Val)
   -- | Serialize message
-  putMessage :: (a Val) -> Put
+  putMessage :: a Val -> Put
 
 
 

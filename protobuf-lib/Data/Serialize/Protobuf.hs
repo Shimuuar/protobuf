@@ -17,16 +17,15 @@ import Control.Monad
 import Data.Bits
 import Data.ByteString          (ByteString)
 import Data.Serialize
-import Data.Serialize.Get
-import Data.Serialize.Put
 import Data.Serialize.VarInt
 import qualified Data.Sequence as Seq
 import           Data.Sequence   (Seq,(|>))
-import Debug.Trace
 
 import Data.Protobuf.Classes
 
--- | Wire tag
+
+
+-- | Wire tag. It's pair of message tags and 
 data WireTag = WireTag {-# UNPACK #-} !Int {-# UNPACK #-} !Int
                deriving Show
 
@@ -81,7 +80,7 @@ getPbEnum = toPbEnum <$> getVarInt
 getPbString :: Get String
 getPbString = do
   n <- getVarInt
-  isolate n $ getChars
+  isolate n getChars
 
 -- worker for getPbString
 getChars :: Get String
@@ -99,4 +98,4 @@ getPbBytestring = getByteString =<< getVarInt
 getDelimMessage :: Message m => Get (m Required)
 getDelimMessage = do
   n <- getVarInt
-  isolate n $ getMessage
+  isolate n getMessage

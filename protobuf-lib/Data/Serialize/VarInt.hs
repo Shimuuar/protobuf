@@ -109,19 +109,19 @@ putZigzag64 = putVarWord64 . enc64
 
 dec32 :: Word32 -> Int32
 dec32 n 
-  | odd n  = complement (fromIntegral $ n `shiftR` 1)
-  | even n = (fromIntegral $ n `shiftR` 1)
+  | odd n     = complement (fromIntegral $ n `shiftR` 1)
+  | otherwise = fromIntegral (n `shiftR` 1)
 
 dec64 :: Word64 -> Int64
 dec64 n 
-  | odd n  = complement (fromIntegral $ n `shiftR` 1)
-  | even n = (fromIntegral $ n `shiftR` 1)
+  | odd n     = complement (fromIntegral $ n `shiftR` 1)
+  | otherwise = fromIntegral (n `shiftR` 1)
 
 
 enc32 :: Int32 -> Word32
-enc32 n =   (fromIntegral $ n `shiftL` 1) 
-      `xor` (fromIntegral $ n `shiftR` 31)
+enc32 n =   fromIntegral (n `shiftL` 1) 
+      `xor` fromIntegral (n `shiftR` 31)
 
 enc64 :: Int64 -> Word64
-enc64 n =   (fromIntegral $ n `shiftL` 1) 
-      `xor` (fromIntegral $ n `shiftR` 63)
+enc64 n =   fromIntegral (n `shiftL` 1) 
+      `xor` fromIntegral (n `shiftR` 63)
