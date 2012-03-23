@@ -17,13 +17,12 @@ module Data.Protobuf.DataTree where
 import Control.Monad.Error
 
 import Data.Data
-import Data.List
 import Data.Monoid
 import qualified Data.Map as Map
 import           Data.Map   (Map)
 
 import Data.Protobuf.AST
-import Data.Protobuf.Types (Qualified(..),PbMonadE,PbMonad)
+import Data.Protobuf.Types (PbMonad)
 
 
 

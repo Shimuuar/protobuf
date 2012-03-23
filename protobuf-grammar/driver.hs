@@ -2,8 +2,6 @@
 {-# LANGUAGE RecordWildCards #-}
 import Control.Monad
 import Control.Monad.IO.Class
-import Control.Monad.Trans.Reader
-import Control.Monad.Trans.Error
 import Data.List
 import qualified Data.Map as Map
 import Text.Groom
@@ -38,15 +36,10 @@ dumpBundle (Bundle{..}) = do
       blue (text " >>> ================\n")
     dumpPB pb
 
-
-runPbMonad m
-  = flip runReaderT (PbContext ["."])
-  $ runErrorT
-  $ m
-
 go :: [String] -> IO ()
 go files = do
-  x <- runPbMonad $ do
+  let cxt = PbContext ["."]
+  x <- runPbMonad cxt$ do
     -- Read
     s0 <- readProtobuf files
     applyBundleM_ checkLabels s0

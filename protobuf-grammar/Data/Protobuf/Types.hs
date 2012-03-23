@@ -25,6 +25,7 @@ module Data.Protobuf.Types (
   , nameDown
     -- *
   , PbMonad
+  , runPbMonad
   , PbMonadE
   , oops
   , collectErrors
@@ -205,6 +206,12 @@ data PbContext = PbContext { includePaths :: [String]
 type PbMonad =
   ErrorT String
    (ReaderT PbContext IO)
+
+runPbMonad :: PbContext -> PbMonad a -> IO (Either String a)
+runPbMonad cxt
+  = flip runReaderT cxt
+  . runErrorT
+
 
 -- | Monad which allows to accumulate non-fatal errors
 type PbMonadE =
