@@ -1,4 +1,3 @@
-{-# LANGUAGE RecordWildCards #-}
 -- | Transofrmation of protobug AST
 module Data.Protobuf.Transform where
 
@@ -25,7 +24,7 @@ import Debug.Trace
 -- Validation
 ----------------------------------------------------------------
 
--- | Check that there are no duplicate labels
+-- | Check that there are no duplicate label numbers
 checkLabels :: Data a => ProtobufFile a -> PbMonad ()
 checkLabels pb = collectErrors $ do
   mapM_ checkMessage [ fs | Message  _ fs _ <- universeBi pb ]
@@ -33,11 +32,11 @@ checkLabels pb = collectErrors $ do
   where
     checkMessage fs = 
       when (labels /= nub labels) $
-        oops "Duplicate labels"
+        oops "Duplicate label number"
       where labels = [ i | MessageField (Field _ _ _ (FieldTag i) _) <- fs ]
     checkEnum fs = 
       when (labels /= nub labels) $
-        oops "Duplicate labels"
+        oops "Duplicate label number"
       where labels = [ i | EnumField _ i <- fs ]
 
 
@@ -47,7 +46,8 @@ checkLabels pb = collectErrors $ do
 ----------------------------------------------------------------
 
 ----------------------------------------------------------------
--- * Stage 1. Mangle all names. 
+-- * Stage 1. Mangle all names. No attempt is made to handle possible
+--   name clashes
 mangleNames :: Data a => ProtobufFile a -> ProtobufFile a
 mangleNames 
   = transformBi mangleFieldName
@@ -63,9 +63,9 @@ mangleFieldName :: Identifier TagField -> Identifier TagField
 mangleFieldName (Identifier (c:cs)) = Identifier $ toLower c : cs
 mangleFieldName (Identifier "")     = error "Impossible happened: invalid field identifier"
 
+
 ----------------------------------------------------------------
--- * Stage 2. Remove package declarations and move package name into
---   ProtobufFile declaration.
+-- * Stage 2. Add package declaration to ProtobufFile
 removePackage :: ProtobufFile a -> PbMonad (ProtobufFile a)
 removePackage (ProtobufFile pb _ x) = do
   p <- case [ p | Package p <- pb ] of
@@ -112,8 +112,8 @@ collectEnumNames path (EnumDecl name fields _) = do
 collectFieldNames :: [Identifier TagType] -> MessageField -> NameCollector MessageField
 collectFieldNames path f@(MessageField (Field _ _ n _ _)) =
   f <$ addName (FieldName $ Identifier $ identifier n)
-collectFieldNames path (Nested m) = do
-  Nested <$> collectMessageNames path m
+collectFieldNames path (Nested m) =
+  Nested <$> collectMessageNames path 
 collectFieldNames path (MessageEnum e) =
   MessageEnum <$> collectEnumNames path e
 collectFieldNames _ x = return x
@@ -149,6 +149,7 @@ resolvePkgImport (Bundle _ imap pmap) (ProtobufFile pb qs names) = do
   return $ ProtobufFile pb qs global
 
 
+
 ----------------------------------------------------------------
 -- * Stage 5. Resolve all names. All type names at this point are
 --   converted into fully qualifie form.
@@ -177,8 +178,6 @@ toTypename _ = throwError "Not a type name"
 -- * Stage 6. Convert AST to haskell representation
 toHaskellTree :: [ProtobufFile Namespace] -> PbMonad DataTree
 toHaskellTree pb =
-  trace "ASD" $ 
-  traceShow (length decls)
   DataTree <$> runCollide (mconcat decls)
   where
     decls =  [ enumToHask    e | e <- universeBi pb ]
