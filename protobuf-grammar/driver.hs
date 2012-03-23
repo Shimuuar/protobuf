@@ -111,17 +111,6 @@ main = go =<< getArgs
 
 ----------------------------------------------------------------
 
-applyBundleM_ :: Monad m => (ProtobufFile a -> m ()) -> Bundle a -> m ()
-applyBundleM_ f (Bundle ps imap pmap) =
-  F.mapM_ f pmap
-
-applyBundleM :: Monad m => (ProtobufFile a -> m (ProtobufFile b)) -> Bundle a -> m (Bundle b)
-applyBundleM f (Bundle ps imap pmap) =
-  Bundle ps imap `liftM` T.mapM f pmap
-
-applyBundle :: (ProtobufFile a -> ProtobufFile b) -> Bundle a -> Bundle b
-applyBundle f (Bundle ps imap pmap) =
-  Bundle ps imap (fmap f pmap)
 
 dump :: ([Identifier TagType], HsModule) -> IO ()
 dump m@(map identifier -> qs, _) = do

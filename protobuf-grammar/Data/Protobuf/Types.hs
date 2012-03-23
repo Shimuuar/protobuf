@@ -4,6 +4,9 @@
 module Data.Protobuf.Types (
     -- * 
     Bundle(..)
+  , applyBundle
+  , applyBundleM
+  , applyBundleM_
     -- *
   , Qualified(..)
   , addQualifier
@@ -36,11 +39,11 @@ import Control.Monad.Error
 
 import Data.Data                 (Typeable,Data)
 import Data.Functor
-import qualified Data.Map      as Map
-import           Data.Map        (Map)
-import qualified Data.Foldable as F
+import qualified Data.Map         as Map
+import           Data.Map           (Map)
+import qualified Data.Foldable    as F
+import qualified Data.Traversable as T
 
-import Data.Set   (Set)
 import Data.Ord
 import Data.Function
 
@@ -62,6 +65,19 @@ data Bundle n = Bundle
     -- ^ Map file pathes to packages.
   }
   deriving (Data,Typeable)
+
+applyBundle :: (ProtobufFile a -> ProtobufFile b) -> Bundle a -> Bundle b
+applyBundle f (Bundle ps imap pmap) =
+  Bundle ps imap (fmap f pmap)
+
+applyBundleM_ :: Monad m => (ProtobufFile a -> m ()) -> Bundle a -> m ()
+applyBundleM_ f (Bundle _ _ pmap) =
+  F.mapM_ f pmap
+
+applyBundleM :: Monad m => (ProtobufFile a -> m (ProtobufFile b)) -> Bundle a -> m (Bundle b)
+applyBundleM f (Bundle ps imap pmap) =
+  Bundle ps imap `liftM` T.mapM f pmap
+
 
 
 ----------------------------------------------------------------
@@ -157,6 +173,7 @@ instance Ord SomeName where
 data Names = Names Namespace [(Identifier TagType)]
            deriving (Show,Typeable,Data)
 
+nameDown :: Identifier TagType -> Names -> Names
 nameDown n (Names global path) = Names global (path ++ [n])
 
 resolveName :: Names -> QIdentifier -> PbMonadE (Qualified TagType SomeName)
@@ -208,4 +225,3 @@ collectErrors m = do
 -- | Ask for context
 askContext :: PbMonad PbContext
 askContext = lift ask
-
