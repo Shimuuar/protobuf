@@ -131,7 +131,7 @@ convertDecl (HsEnum    (TyName name) fields) =
       -- Constructors
       [ QualConDecl s [] [] (ConDecl (Ident n) []) | (TyName n, _) <- fields ]
       -- Deriving clause
-      [ (qname "Show", []), (qname "Eq", []) ]
+      [ (qname "Show", []), (qname "Eq", []), (qname "Enum", []) ]
   -- PbEnum instance
   , instance_ "PbEnum" (tycon name) $
       [ fun "fromPbEnum" [pvar n] =: lit i | (TyName n, i) <- fields ] ++

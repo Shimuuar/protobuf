@@ -48,6 +48,7 @@ module Data.Protobuf.Imports (
   , Show(..)
   , Eq(..)
   , Ord(..)
+  , Enum(..)
   , Functor(..)
   , Monad(..)
   , Monoid(..)
