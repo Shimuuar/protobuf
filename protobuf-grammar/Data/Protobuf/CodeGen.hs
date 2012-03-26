@@ -42,7 +42,7 @@ convert (qs, msg) =
 
 -- Generate import list
 importList :: HsModule -> [ImportDecl]
-importList = map toImport . concatMap pick . universeBi
+importList = map toImport . nub . concatMap pick . universeBi
   where
     pick (HsBuiltin _)                    = []
     pick (HsUserMessage (Qualified qs q)) = [qs ++ [q]]
