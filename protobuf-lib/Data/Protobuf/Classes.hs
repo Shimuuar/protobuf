@@ -37,7 +37,7 @@ instance Functor Required where
   fmap _ NotSet      = NotSet
 
 -- | Wrapper for requieed type after checking.
-newtype Val a = Val a
+newtype Val a = Val { val :: a }
                 deriving (Show)
 
 ----------------------------------------------------------------
