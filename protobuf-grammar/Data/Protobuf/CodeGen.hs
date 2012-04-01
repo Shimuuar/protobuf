@@ -201,9 +201,9 @@ recordField :: HsField -> ([Name], BangType)
 recordField (HsField tp name _ _) =
   ([Ident name], outerType tp)
   where
-    outerType (HsReq   t  ) = BangedTy $ TyCon (qname "Val"  ) `TyApp` TyVar (Ident "r") `TyApp` innerType t
-    outerType (HsMaybe t  ) = BangedTy $ TyCon (qname "Maybe") `TyApp` innerType t
-    outerType (HsSeq   t _) = BangedTy $ TyCon (qname "Seq"  ) `TyApp` innerType t
+    outerType (HsReq   t  ) = BangedTy $ qtycon "Val"   `TyApp` TyVar (Ident "r") `TyApp` innerType t
+    outerType (HsMaybe t  ) = BangedTy $ qtycon "Maybe" `TyApp` innerType t
+    outerType (HsSeq   t _) = BangedTy $ qtycon "Seq"   `TyApp` innerType t
 
     innerType (HsBuiltin     t) = primType t
     innerType (HsUserMessage q) = userType q
@@ -214,27 +214,21 @@ recordField (HsField tp name _ _) =
     enumType (Qualified qs n) =
       (TyCon $ Qual (modName (qs++[n])) (Ident $ identifier n))
     -- Builtin types
-    primType PbDouble   = TyCon $ qname "Double"
-    primType PbFloat    = TyCon $ qname "Float"
-    primType PbInt32    = sint32
-    primType PbInt64    = sint64
-    primType PbUInt32   = uint32
-    primType PbUInt64   = uint64
-    primType PbSInt32   = sint32
-    primType PbSInt64   = sint64
-    primType PbFixed32  = uint32
-    primType PbFixed64  = uint64
-    primType PbSFixed32 = sint32
-    primType PbSFixed64 = sint64
-    primType PbBool     = TyCon $ qname "Bool"
-    primType PbString   = TyCon $ qname "String"
-    primType PbBytes    = TyCon $ qname "ByteString"
-    -- Synonyms
-    sint32 = TyCon $ qname "Int32"
-    sint64 = TyCon $ qname "Int64"
-    uint32 = TyCon $ qname "Word32"
-    uint64 = TyCon $ qname "Word64"
-
+    primType PbDouble   = qtycon "Double"
+    primType PbFloat    = qtycon "Float"
+    primType PbInt32    = qtycon "Int32"
+    primType PbInt64    = qtycon "Int64"
+    primType PbUInt32   = qtycon "Word32"
+    primType PbUInt64   = qtycon "Word64"
+    primType PbSInt32   = qtycon "Int32"
+    primType PbSInt64   = qtycon "Int64"
+    primType PbFixed32  = qtycon "Word32"
+    primType PbFixed64  = qtycon "Word64"
+    primType PbSFixed32 = qtycon "Int32"
+    primType PbSFixed64 = qtycon "Int64"
+    primType PbBool     = qtycon "Bool"
+    primType PbString   = qtycon "String"
+    primType PbBytes    = qtycon "ByteString"
 
 
 
