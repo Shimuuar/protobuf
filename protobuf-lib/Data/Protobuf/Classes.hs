@@ -1,7 +1,10 @@
 {-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE TypeFamilies   #-}
 -- |
---  API for generated code.
+-- This module contains API for generated code.
+--
+-- Most complicated part in the decoding of messages is need to track
+-- required fields.
 --
 -- * Required fields are most tricky. Since 
 --
