@@ -20,11 +20,6 @@ module Data.Protobuf.Imports (
   , ap
   , mapM
     -- ** Decode functions
-    -- *** Floating point values
-  , getFloat32le
-  , getFloat64le
-  , putFloat32le
-  , putFloat64le
     -- *** Varint encoded integrals
   , getVarWord32
   , getVarWord64
