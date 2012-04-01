@@ -257,9 +257,8 @@ caseField (HsField ty name (FieldTag tag) _) =
         ]
   -- Oops! wrong field type
   , PApp (qname "WireTag") [plit tag, PWildCard] -->
-    app [ qvar "fail" , app [ qvar "fail"
-                            , lit "Invalid type tag encountered!"
-                            ]
+    app [ qvar "fail"
+        , lit "Invalid type tag encountered!"
         ]
   ]
   where
