@@ -73,7 +73,8 @@ import Prelude hiding (mapM)
 
 
 -- | Type of worker function in the generated code. 
-type LoopType v = v Required -> Get (v Required)
+type LoopType v = v Unchecked -> Get (v Unchecked)
+
 
 -- | Check optional value
 checkMaybe :: Monad m => a -> Maybe a -> m (Maybe a)
@@ -82,19 +83,19 @@ checkMaybe _ x       = return x
 {-# INLINE checkMaybe #-}
 
 -- | Check optional value
-checkMaybeMsg :: (Message a, Monad m) =>  Maybe (a Required) -> m (Maybe (a Val))
+checkMaybeMsg :: (Message a, Monad m) =>  Maybe (a Unchecked) -> m (Maybe (a Checked))
 checkMaybeMsg Nothing  = return Nothing
 checkMaybeMsg (Just x) = liftM Just (checkReq x)
 {-# INLINE checkMaybeMsg #-}
 
 -- | Check required value
-checkRequired :: Monad m => Required a -> m (Val a)
+checkRequired :: Monad m => Required a -> m a
 checkRequired NotSet      = fail "Field is not set!"
-checkRequired (Present x) = return $ Val x
+checkRequired (Present x) = return x
 {-# INLINE checkRequired #-}
 
 -- | Check required message
-checkRequiredMsg :: (Message a, Monad m) => Required (a Required) -> m (Val (a Val))
+checkRequiredMsg :: (Message a, Monad m) => Required (a Unchecked) -> m (a Checked)
 checkRequiredMsg NotSet      = fail "Field is not set!"
-checkRequiredMsg (Present x) = liftM Val (checkReq x)
+checkRequiredMsg (Present x) = checkReq x
 {-# INLINE checkRequiredMsg #-}

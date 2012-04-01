@@ -61,20 +61,22 @@ importList = map toImport . nub . concatMap pick . universeBi
 convertDecl :: HsModule -> [Decl]
 convertDecl (HsMessage (TyName name) fields) =
   -- Data declaration
-  [ DataDecl s DataType [] (Ident name) [KindedVar (Ident "r") (KindStar `KindFn` KindStar)]
+  [ DataDecl s DataType [] (Ident name) 
+      [UnkindedVar (Ident "r")]
+      -- [KindedVar (Ident "r") (KindStar `KindFn` KindStar)]
       [ QualConDecl s [] [] $ RecDecl (Ident name) (map recordField fields)
       ]
       []
-  , DerivDecl s [] (qname "Show") [ tycon name `TyApp` qtycon "Required" ]
-  , DerivDecl s [] (qname "Show") [ tycon name `TyApp` qtycon "Val" ]
-  , instance_ "Default" (tycon name `TyApp` qtycon "Required")
+  , DerivDecl s [] (qname "Show") [ tycon name `TyApp` qtycon "Checked"   ]
+  , DerivDecl s [] (qname "Show") [ tycon name `TyApp` qtycon "Unchecked" ]
+  , instance_ "Default" (tycon name `TyApp` qtycon "Unchecked")
       [ bind "def" =: foldl App (con name)
           [ case defV of
               Just v  -> lit v
               Nothing -> qvar "def"
           | HsField _ _ _ defV <- fields ]
       ]
-  , instance_ "MessageField" (tycon name `TyApp` qtycon "Required")
+  , instance_ "MessageField" (tycon name `TyApp` qtycon "Unchecked")
       [ let ns1 = patNames "x" fields
             ns2 = patNames "y" fields
         in fun "mergeField" [ (PApp $ UnQual $ Ident name) (map PVar ns1)
@@ -88,7 +90,7 @@ convertDecl (HsMessage (TyName name) fields) =
                       | (n1, n2) <- zip ns1 ns2
                       ]
       ]
-  , instance_ "Monoid" (tycon name `TyApp` qtycon "Required")
+  , instance_ "Monoid" (tycon name `TyApp` qtycon "Unchecked")
       [ bind "mempty"  =: qvar "def"
       , bind "mappend" =: qvar "mergeField"
       ]
@@ -191,7 +193,7 @@ recordField :: HsField -> ([Name], BangType)
 recordField (HsField tp name _ _) =
   ([Ident name], outerType tp)
   where
-    outerType (HsReq   t  ) = BangedTy $ TyVar (Ident "r")     `TyApp` innerType t
+    outerType (HsReq   t  ) = BangedTy $ TyCon (qname "Val"  ) `TyApp` TyVar (Ident "r") `TyApp` innerType t
     outerType (HsMaybe t  ) = BangedTy $ TyCon (qname "Maybe") `TyApp` innerType t
     outerType (HsSeq   t _) = BangedTy $ TyCon (qname "Seq"  ) `TyApp` innerType t
 

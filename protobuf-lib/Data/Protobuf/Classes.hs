@@ -1,3 +1,5 @@
+{-# LANGUAGE EmptyDataDecls #-}
+{-# LANGUAGE TypeFamilies   #-}
 -- |
 --  API for generated code.
 --
@@ -9,7 +11,9 @@
 module Data.Protobuf.Classes (
     -- * Data types
     Required(..)
-  , Val(..)
+  , Val
+  , Checked
+  , Unchecked
     -- * Classes
   , PbEnum(..)
   , Default(..)
@@ -36,9 +40,13 @@ instance Functor Required where
   fmap f (Present x) = Present (f x)
   fmap _ NotSet      = NotSet
 
--- | Wrapper for requieed type after checking.
-newtype Val a = Val { val :: a }
-                deriving (Show)
+data Checked 
+data Unchecked
+
+type family Val tag a :: *
+type instance Val Checked   a = a
+type instance Val Unchecked a = Required a
+
 
 ----------------------------------------------------------------
 -- Type classes
@@ -60,11 +68,11 @@ class Default a where
 -- | Serialization/deserialization of message
 class Message a where
   -- | Deserialize message
-  getMessage :: Get (a Required)
+  getMessage :: Get (a Unchecked)
   -- | Check that all required fields are present
-  checkReq   :: Monad m => a Required -> m (a Val)
+  checkReq   :: Monad m => a Unchecked -> m (a Checked)
   -- | Serialize message
-  putMessage :: a Val -> Put
+  putMessage :: a Checked -> Put
 
 
 
@@ -102,8 +110,8 @@ instance MessageField a => MessageField (Required a) where
   mergeField NotSet  x       = x
   mergeField x       NotSet  = x
 
-instance MessageField a => MessageField (Val a) where
-  mergeField (Val a) (Val b) = Val $ mergeField a b
+-- instance MessageField a => MessageField (a) where
+--   mergeField (Val a) (Val b) = Val $ mergeField a b
 
 instance MessageField (Seq a) where
   mergeField = mappend

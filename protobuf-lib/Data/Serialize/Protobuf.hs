@@ -93,7 +93,7 @@ getPbBytestring :: Get ByteString
 getPbBytestring = getByteString =<< getVarInt
 
 -- | Decode delimited message
-getDelimMessage :: Message m => Get (m Required)
+getDelimMessage :: Message m => Get (m Unchecked)
 getDelimMessage = do
   n <- getVarInt
   isolate n getMessage
