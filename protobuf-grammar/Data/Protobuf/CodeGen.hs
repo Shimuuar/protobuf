@@ -322,6 +322,7 @@ putMessage nm (HsField ty _ (FieldTag tag) _) =
                        ]
       , Var $ UnQual nm
       ]
+    putField _ = error "Impossible happened: invalid packed field"
     -- 
     innerPut expr = app
       [ qvar "putWithWireTag"
@@ -330,9 +331,9 @@ putMessage nm (HsField ty _ (FieldTag tag) _) =
       , expr
       ]
     -- 
-    putSingle (HsBuiltin     pt) = putPrim pt
-    putSingle (HsUserEnum    pt) = qvar "putPbEnum"
-    putSingle (HsUserMessage pt) = qvar "putMessage"
+    putSingle (HsBuiltin     t) = putPrim t
+    putSingle (HsUserEnum    _) = qvar "putPbEnum"
+    putSingle (HsUserMessage _) = qvar "putMessage"
     -- Put primitive type
     putPrim t = case t of
       PbDouble   -> qvar "putFloat64le"
@@ -355,15 +356,16 @@ putMessage nm (HsField ty _ (FieldTag tag) _) =
 
 ----------------------------------------------------------------
 -- Type tags for integra l
+typeTag :: HsType -> Integer
 typeTag ty = case ty of
   HsReq   t      -> innerTag t
   HsMaybe t      -> innerTag t
   HsSeq   _ True -> lenDelim
   HsSeq   t _    -> innerTag t
-
-innerTag (HsUserMessage _) = lenDelim
-innerTag (HsUserEnum    _) = varint
-innerTag (HsBuiltin t)     = case t of
+  where
+    innerTag (HsUserMessage _) = lenDelim
+    innerTag (HsUserEnum    _) = varint
+    innerTag (HsBuiltin t)     = case t of
       PbDouble   -> fixed64
       PbFloat    -> fixed32
       PbInt32    -> varint
