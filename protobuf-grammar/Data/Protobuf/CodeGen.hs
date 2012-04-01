@@ -40,14 +40,18 @@ convert (qs, msg) =
    -- Code
    (convertDecl msg)
 
+
+
+----------------------------------------------------------------
 -- Generate import list
 importList :: HsModule -> [ImportDecl]
-importList = map toImport . nub . concatMap pick . universeBi
+importList 
+  = map toImport . nub . concatMap pick . universeBi
   where
     pick (HsBuiltin _)                    = []
     pick (HsUserMessage (Qualified qs q)) = [qs ++ [q]]
     pick (HsUserEnum    (Qualified qs q)) = [qs ++ [q]]
-    --
+    -- Create import
     toImport qs = ImportDecl { importLoc       = s
                              , importModule    = ModuleName $ intercalate "." $ map identifier qs
                              , importQualified = True
@@ -57,13 +61,15 @@ importList = map toImport . nub . concatMap pick . universeBi
                              , importSpecs     = Nothing
                              }
 
--- | Convert declaration
+
+
+----------------------------------------------------------------
+-- Generate data and instances declarations
 convertDecl :: HsModule -> [Decl]
+-- [Message]
 convertDecl (HsMessage (TyName name) fields) =
-  -- Data declaration
   [ DataDecl s DataType [] (Ident name) 
-      [UnkindedVar (Ident "r")]
-      -- [KindedVar (Ident "r") (KindStar `KindFn` KindStar)]
+      [ UnkindedVar (Ident "r") ]
       [ QualConDecl s [] [] $ RecDecl (Ident name) (map recordField fields)
       ]
       []
@@ -127,18 +133,14 @@ convertDecl (HsMessage (TyName name) fields) =
              Do [ Qualifier e | e <- zipWith putMessage ns fields ]
       ]
   ]
+-- [Enum]
 convertDecl (HsEnum    (TyName name) fields) =
-  -- Data declaration
   [ DataDecl s DataType [] (Ident name) []
-      -- Constructors
       [ QualConDecl s [] [] (ConDecl (Ident n) []) | (TyName n, _) <- fields ]
-      -- Deriving clause
       [ (qname "Show", []), (qname "Eq", []), (qname "Enum", []) ]
-  -- PbEnum instance
   , instance_ "PbEnum" (tycon name) $
       [ fun "fromPbEnum" [pvar n] =: lit i | (TyName n, i) <- fields ] ++
       [ fun "toPbEnum"   [plit i] =: con n | (TyName n, i) <- fields ]
-  -- Ord instance
   , instance_ "Ord" (tycon name)
       [ bind "compare" =: app [ qvar "comparing"
                               , qvar "fromPbEnum" ]
@@ -149,6 +151,9 @@ convertDecl (HsEnum    (TyName name) fields) =
   , instance_ "MessageField" (tycon name) []
   ]
 
+
+
+----------------------------------------------------------------
 -- Generate checkReq function
 checkReq :: String -> [HsField] -> Decl
 checkReq name fields =
@@ -188,7 +193,10 @@ checkReq name fields =
     check n (HsField (HsReq (HsUserMessage _)) _ _ _)        
       = app [ qvar "checkRequiredMsg"  , Var (UnQual n) ]
     
--- | Single fields of record
+
+
+----------------------------------------------------------------
+-- Single fields of record for message
 recordField :: HsField -> ([Name], BangType)
 recordField (HsField tp name _ _) =
   ([Ident name], outerType tp)
@@ -205,7 +213,7 @@ recordField (HsField tp name _ _) =
       (TyCon $ Qual (modName (qs++[n])) (Ident $ identifier n)) `TyApp` TyVar (Ident "r")
     enumType (Qualified qs n) =
       (TyCon $ Qual (modName (qs++[n])) (Ident $ identifier n))
-      
+    -- Builtin types
     primType PbDouble   = TyCon $ qname "Double"
     primType PbFloat    = TyCon $ qname "Float"
     primType PbInt32    = sint32
@@ -221,21 +229,27 @@ recordField (HsField tp name _ _) =
     primType PbBool     = TyCon $ qname "Bool"
     primType PbString   = TyCon $ qname "String"
     primType PbBytes    = TyCon $ qname "ByteString"
-
+    -- Synonyms
     sint32 = TyCon $ qname "Int32"
     sint64 = TyCon $ qname "Int64"
     uint32 = TyCon $ qname "Word32"
     uint64 = TyCon $ qname "Word64"
 
+
+
+
+----------------------------------------------------------------
+-- Alternatives for case expression in decoder
 caseField :: HsField -> [Alt]
 caseField (HsField ty name (FieldTag tag) _) =
   -- We have found tag
-  [ (PApp (qname "WireTag") [plit tag, plit typeTag]) -->
+  [ (PApp (qname "WireTag") [plit tag, plit (typeTag ty)]) -->
      Do [ pvar "f" <-- getter
         , Qualifier $ app [ var "loop"
                           , RecUpdate (var "v") [
                             FieldUpdate (UnQual $ Ident name)
                               (app [ qvar "mergeField"
+                                     -- FIXME: shadowing can take place here!!!
                                    , app [ var name
                                          , var "v"
                                          ]
@@ -253,54 +267,22 @@ caseField (HsField ty name (FieldTag tag) _) =
         ]
   ]
   where
-    -- Type tags
-    typeTag = case ty of
-      HsReq   t      -> innerTag t
-      HsMaybe t      -> innerTag t
-      HsSeq   _ True -> lenDelim
-      HsSeq   t _    -> innerTag t
-
-    innerTag (HsUserMessage _) = lenDelim
-    innerTag (HsUserEnum    _) = varint
-    innerTag (HsBuiltin t)     = case t of
-      PbDouble   -> fixed64
-      PbFloat    -> fixed32
-      PbInt32    -> varint
-      PbInt64    -> varint
-      PbUInt32   -> varint
-      PbUInt64   -> varint
-      PbSInt32   -> varint
-      PbSInt64   -> varint
-      PbFixed32  -> fixed32
-      PbFixed64  -> fixed64
-      PbSFixed32 -> fixed32
-      PbSFixed64 -> fixed64
-      PbBool     -> varint
-      PbString   -> lenDelim
-      PbBytes    -> lenDelim
-
     -- Getters
     getter = case ty of
       HsReq   t    -> qvar "Present" .<$>. getField t
       HsMaybe t    -> qvar "Just"    .<$>. getField t
       HsSeq t True -> getPacked t
       HsSeq t _    -> qvar "singleton" .<$>. getField t
-
-    getPacked (HsBuiltin t) = app [ qvar "label"
-                                  , lit $  name ++ "[packed]"
-                                  , app [ qvar "getPacked"
-                                        , getPrim t
-                                        ]
+    -- Get packed fields
+    getPacked (HsBuiltin t) = app [ qvar "getPacked"
+                                  , getPrim t
                                   ]
     getPacked _ = error "Impossible happened. Invalid packed option"
-
-    getField (HsUserMessage _) = app [ qvar "label" 
-                                     , lit  name
-                                     , qvar "getDelimMessage"
-                                     ]
+    -- Get field
+    getField (HsUserMessage _) = qvar "getDelimMessage"
     getField (HsUserEnum    _) = qvar "getPbEnum"
     getField (HsBuiltin     t) = getPrim t
-
+    -- Getter for built-in types
     getPrim t = case t of
       PbDouble   -> qvar "getFloat64le"
       PbFloat    -> qvar "getFloat32le"
@@ -318,21 +300,45 @@ caseField (HsField ty name (FieldTag tag) _) =
       PbString   -> qvar "getPbString"
       PbBytes    -> qvar "getPbBytestring"
 
+
+
+
+----------------------------------------------------------------
+-- Encode message field
 putMessage :: Name -> HsField -> Exp
 putMessage nm (HsField ty _ (FieldTag tag) _) = 
-  Do  [ Qualifier $ app [ qvar "put" 
-                        , app [ qcon "WireTag"
-                              , lit tag
-                              , lit (1 :: Integer)
-                              ]
-                        ]
-      ]
-  -- case ty of
-  --   HsBuiltin pt -> 
+  putField ty
   where
-    -- putExpr
-    -- put for primitive types
-    
+    -- Encode field
+    putField (HsReq   t) = app [ innerPut (putSingle t)
+                               , Var $ UnQual nm
+                               ]
+    putField (HsMaybe t) = app [ qvar "putOptional"
+                               , innerPut (putSingle t)
+                               , Var $ UnQual nm
+                               ]
+    putField (HsSeq t False) = app [ qvar "mapM"
+                                   , innerPut (putSingle t)
+                                   , Var $ UnQual nm 
+                                   ]
+    putField (HsSeq (HsBuiltin t) True ) = app 
+      [ innerPut $ app [ qvar "putPacked"
+                       , putPrim t
+                       ]
+      , Var $ UnQual nm
+      ]
+    -- 
+    innerPut expr = app
+      [ qvar "putWithWireTag"
+      , lit tag
+      , lit (typeTag ty)
+      , expr
+      ]
+    -- 
+    putSingle (HsBuiltin     pt) = putPrim pt
+    putSingle (HsUserEnum    pt) = qvar "putPbEnum"
+    putSingle (HsUserMessage pt) = qvar "putMessage"
+    -- Put primitive type
     putPrim t = case t of
       PbDouble   -> qvar "putFloat64le"
       PbFloat    -> qvar "putFloat32le"
@@ -350,7 +356,34 @@ putMessage nm (HsField ty _ (FieldTag tag) _) =
       PbString   -> qvar "putPbString"
       PbBytes    -> qvar "putPbBytestring"
 
+
+
 ----------------------------------------------------------------
+-- Type tags for integra l
+typeTag ty = case ty of
+  HsReq   t      -> innerTag t
+  HsMaybe t      -> innerTag t
+  HsSeq   _ True -> lenDelim
+  HsSeq   t _    -> innerTag t
+
+innerTag (HsUserMessage _) = lenDelim
+innerTag (HsUserEnum    _) = varint
+innerTag (HsBuiltin t)     = case t of
+      PbDouble   -> fixed64
+      PbFloat    -> fixed32
+      PbInt32    -> varint
+      PbInt64    -> varint
+      PbUInt32   -> varint
+      PbUInt64   -> varint
+      PbSInt32   -> varint
+      PbSInt64   -> varint
+      PbFixed32  -> fixed32
+      PbFixed64  -> fixed64
+      PbSFixed32 -> fixed32
+      PbSFixed64 -> fixed64
+      PbBool     -> varint
+      PbString   -> lenDelim
+      PbBytes    -> lenDelim
 
 varint, fixed32, fixed64, lenDelim :: Integer
 varint   = 0

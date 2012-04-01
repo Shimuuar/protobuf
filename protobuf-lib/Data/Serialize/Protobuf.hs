@@ -2,6 +2,7 @@
 module Data.Serialize.Protobuf (
     -- * Data types
     WireTag(..)
+  , putWithWireTag
     -- * Getters
   , skipUnknownField
   , getPacked
@@ -24,7 +25,7 @@ import Data.Protobuf.Classes
 
 
 
--- | Wire tag. It's pair of message tags and 
+-- | Wire tag. It's pair of message tags and type tag
 data WireTag = WireTag {-# UNPACK #-} !Int {-# UNPACK #-} !Int
                deriving Show
 
@@ -34,6 +35,15 @@ instance Serialize WireTag where
     return $! WireTag (i `shiftR` 3) (0x07 .&. i)
   put (WireTag t w) = putVarInt $ (t `shiftL` 3) .|. w
 
+-- | Put wire atf 
+putWithWireTag :: Int 
+               -> Int 
+               -> (a -> Put)
+               -> a -> Put
+{-# INLINE putWithWireTag #-}
+putWithWireTag tag wt putter = \x -> do
+  put (WireTag tag wt)
+  putter x
 
 -- | Get base-128 encoded int
 getVarInt :: Get Int
@@ -73,6 +83,11 @@ getSeq s getter = do
 getPbEnum :: PbEnum a => Get a
 getPbEnum = toPbEnum <$> getVarInt
 {-# INLINE getPbEnum #-}
+
+-- | Encode protocol buffers enumeration
+putPbEnum :: PbEnum a => a -> Put
+putPbEnum = putVarInt . fromPbEnum
+{-# INLINE putPbEnum #-}
 
 -- | Get PB encoded string
 getPbString :: Get String
