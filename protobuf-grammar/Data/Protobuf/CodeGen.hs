@@ -241,9 +241,11 @@ caseField (HsField ty name (FieldTag tag) _) =
      Do [ pvar "f" <-- getter
         , Qualifier $ app [ var "loop"
                           , RecUpdate (var "v") [
+                            -- FIXME: record fields could be shadowed
+                            --        here. It should be replaced with
+                            --        lambda exression
                             FieldUpdate (UnQual $ Ident name)
                               (app [ qvar "mergeField"
-                                     -- FIXME: shadowing can take place here!!!
                                    , app [ var name
                                          , var "v"
                                          ]
