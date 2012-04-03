@@ -19,6 +19,7 @@ module Data.Protobuf.Imports (
   , comparing    
   , ap
   , mapM
+  , mapM_
     -- ** Decode functions
     -- *** Varint encoded integrals
   , getVarWord32
@@ -63,13 +64,14 @@ import Data.Ord
 import Data.Monoid              (Monoid(..))
 import Data.Sequence            (Seq,singleton)
 import Data.ByteString          (ByteString)
+import Data.Foldable            (mapM_)
 import Data.Traversable         (mapM)
 
 import Data.Protobuf.Classes    as P'
 import Data.Serialize           as P'
 import Data.Serialize.Protobuf  as P'
 import Data.Serialize.VarInt
-import Prelude hiding (mapM)
+import Prelude hiding (mapM,mapM_)
 
 
 -- | Type of worker function in the generated code. 

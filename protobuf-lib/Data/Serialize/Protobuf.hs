@@ -6,20 +6,27 @@ module Data.Serialize.Protobuf (
     -- * Getters
   , skipUnknownField
   , getPacked
+  , putPacked
   , getPbString
+  , putPbString
   , getPbEnum
+  , putPbEnum
   , getPbBytestring
+  , putPbBytestring
   , getDelimMessage
+  , putOptional
   ) where
 
 import Control.Applicative
 import Control.Monad
 import Data.Bits
 import Data.ByteString          (ByteString)
+import qualified Data.ByteString as BS
 import Data.Serialize
 import Data.Serialize.VarInt
 import qualified Data.Sequence as Seq
 import           Data.Sequence   (Seq,(|>))
+import qualified Data.Foldable as F
 
 import Data.Protobuf.Classes
 
@@ -70,6 +77,10 @@ getPacked getter = do
   n <- getVarInt
   isolate n $ getSeq Seq.empty getter
 
+putPacked :: (a -> Put) -> Seq a -> Put
+putPacked putter
+  = putPbBytestring . runPut . F.mapM_ putter
+
 -- Worker for getPacked
 getSeq :: Seq a -> Get a -> Get (Seq a)
 getSeq s getter = do
@@ -95,6 +106,11 @@ getPbString = do
   n <- getVarInt
   isolate n getChars
 
+putPbString :: String -> Put
+putPbString str = do
+  put (length str)
+  mapM_ put str
+
 -- worker for getPbString
 getChars :: Get String
 getChars = do
@@ -107,8 +123,17 @@ getChars = do
 getPbBytestring :: Get ByteString
 getPbBytestring = getByteString =<< getVarInt
 
+-- | Get PB encoded bytestring
+putPbBytestring :: ByteString -> Put
+putPbBytestring bs = putVarInt (BS.length bs) >> putByteString bs
+
 -- | Decode delimited message
 getDelimMessage :: Message m => Get (m Unchecked)
 getDelimMessage = do
   n <- getVarInt
   isolate n getMessage
+
+putOptional :: (a -> Put) -> Maybe a -> Put
+putOptional putter (Just x) = putter x
+putOptional _      Nothing  = return ()
+{-# INLINE putOptional #-}
