@@ -312,7 +312,7 @@ putMessage nm (HsField ty _ (FieldTag tag) _) =
                                , innerPut (putSingle t)
                                , Var $ UnQual nm
                                ]
-    putField (HsSeq t False) = app [ qvar "mapM"
+    putField (HsSeq t False) = app [ qvar "mapM_"
                                    , innerPut (putSingle t)
                                    , Var $ UnQual nm 
                                    ]
