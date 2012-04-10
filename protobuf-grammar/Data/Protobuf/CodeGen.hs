@@ -137,7 +137,7 @@ convertDecl (HsMessage (TyName name) fields) =
 convertDecl (HsEnum    (TyName name) fields) =
   [ DataDecl s DataType [] (Ident name) []
       [ QualConDecl s [] [] (ConDecl (Ident n) []) | (TyName n, _) <- fields ]
-      [ (qname "Show", []), (qname "Eq", []), (qname "Enum", []) ]
+      [ (qname "Show", []), (qname "Eq", []), (qname "Enum", []), (qname "Bounded", []) ]
   , instance_ "PbEnum" (tycon name) $
       [ fun "fromPbEnum" [pvar n] =: lit i | (TyName n, i) <- fields ] ++
       [ fun "toPbEnum"   [plit i] =: con n | (TyName n, i) <- fields ]
