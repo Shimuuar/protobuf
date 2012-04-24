@@ -2,21 +2,67 @@
 {-# LANGUAGE RecordWildCards #-}
 import Control.Monad
 import Control.Monad.IO.Class
+
 import Data.List
 import qualified Data.Map as Map
+
 import Text.Groom
 import Text.PrettyPrint.ANSI.Leijen
+
 import Language.Haskell.Exts.Pretty (prettyPrint)
+
 import System.Directory
 import System.Environment
+import System.Console.GetOpt
+import System.Exit
+
 ----------------------------------------------------------------
 import Data.Protobuf.FileIO
-import Data.Protobuf.AST
+import Data.Protobuf.AST            hiding (Option)
 import Data.Protobuf.Types
 import Data.Protobuf.DataTree
 import Data.Protobuf.Transform
 import Data.Protobuf.CodeGen
-----------------------------------------------------------------
+
+       
+main :: IO ()
+main = do
+  pars <- parseArgs
+  let cxt = PbContext { includePaths = "." : includes pars
+                      }
+  res <- runPbMonad cxt $ do
+    -- Read protobuf files
+    ast <- readProtobuf (fileList pars)
+    when (dumpAST pars) $ 
+      liftIO $ dumpBundle ast
+    -- Check AST
+    applyBundleM_ checkLabels ast
+    -- Name mangling etc...
+    let ast1 = applyBundle mangleNames 
+             $ applyBundle sortLabels ast
+    ast2 <- applyBundleM removePackage  ast1
+    ast3 <- applyBundleM buildNamespace ast2
+    pb1  <- resolveImports   ast3
+    pb2  <- mapM resolveTypeNames pb1
+    -- Convert to haskell
+    DataTree hask <- toHaskellTree pb2
+    -- Pretty print haskell code
+    liftIO $ do 
+      setCurrentDirectory (outputDir pars)
+      mapM_ dump (Map.toList hask)
+  -- Check for errors
+  case res of
+    Right _   -> return ()
+    Left  err -> putStrLn err >> exitFailure
+
+
+
+dump :: ([Identifier TagType], HsModule) -> IO ()
+dump m@(map identifier -> qs, _) = do
+  let dir  = intercalate "/" (init qs)
+      file = last qs ++ ".hs"
+  createDirectoryIfMissing True dir
+  writeFile ("./" ++ dir ++ "/" ++ file) ((prettyPrint $ convert m) ++ "\n")
 
 dumpPB :: Show a => ProtobufFile a -> IO ()
 dumpPB pb = do
@@ -36,76 +82,43 @@ dumpBundle (Bundle{..}) = do
       blue (text " >>> ================\n")
     dumpPB pb
 
-go :: [String] -> IO ()
-go files = do
-  let cxt = PbContext ["."]
-  x <- runPbMonad cxt$ do
-    -- Read
-    s0 <- readProtobuf files
-    applyBundleM_ checkLabels s0
-    liftIO $ dumpBundle s0
-    --
-    let s0' = applyBundle mangleNames 
-            $ applyBundle sortLabels s0
-    liftIO $ dumpBundle s0'
-    -- Stage 2
-    s1 <- applyBundleM removePackage s0'
-    liftIO $ dumpBundle s1
-    -- Stage 3
-    s2 <- applyBundleM buildNamespace s1
-    liftIO $ dumpBundle s2
-    -- Stage 4
-    s3 <- resolveImports s2
-    liftIO $ do
-      putDoc $ red $ text $ "\n\n==== STAGE 3 ================\n"
-      mapM dumpPB s3
-    -- Stage 5
-    s4 <- mapM resolveTypeNames s3
-    liftIO $ do
-      putDoc $ red $ text $ "\n\n==== STAGE 4 ================\n"
-      mapM dumpPB s4
-    -- Convert to haskell
-    s5 <- toHaskellTree s4
-    liftIO $ print s5
-    liftIO $ do
-      putDoc $ red $ text $ "\n\n==== HASKELL ================\n"
-      let DataTree q = s5
-      forM_ (Map.toList q) $ \(n,aa) -> do
-        putDoc $ blue $ text $ "----------------------------------------\n"
-        putDoc $ blue $ text $ show n
-        putStrLn ""
-        putStrLn $ groom aa
-    -- P-print haskell code
-    liftIO $ do
-      putDoc $ red $ text $ "\n\n==== HASKELL ================\n"
-      let DataTree q = s5
-      forM_ (Map.toList q) $ \zz -> do
-        putDoc $ red $ text $ "----------------------------------------\n"
-        (putStrLn . prettyPrint . convert) zz
-    -- ----------------
-    liftIO $ do
-      -- setCurrentDirectory "gen"
-      let DataTree q = s5
-      mapM_ dump (Map.toList q)
-      -- setCurrentDirectory ".."
-    return ()
-  case x of
-    Left err -> do
-      putDoc $ red $ text "----------------------------------------------------------------\n"
-      putDoc $ red $ text err
-    Right x  -> return ()
-  return ()
-
-
-main :: IO ()
-main = go =<< getArgs
 
 ----------------------------------------------------------------
+-- Command line parameters
+----------------------------------------------------------------
 
+data Parameters = Parameters
+  { fileList  :: [FilePath]
+  , includes  :: [FilePath]
+  , outputDir :: FilePath
+  , dumpAST   :: Bool
+  }
 
-dump :: ([Identifier TagType], HsModule) -> IO ()
-dump m@(map identifier -> qs, _) = do
-  let dir  = intercalate "/" (init qs)
-      file = last qs ++ ".hs"
-  createDirectoryIfMissing True dir
-  writeFile ("./" ++ dir ++ "/" ++ file) ((prettyPrint $ convert m) ++ "\n")
+defaultParameters :: [FilePath] -> Parameters
+defaultParameters fs = Parameters
+  { fileList   = fs
+  , includes   = []
+  , outputDir  = "."
+  , dumpAST    = False
+  }
+
+parseArgs :: IO Parameters
+parseArgs = do
+  args <- getArgs
+  case getOpt Permute opts args of
+    (xs,files,[]) -> return $ foldl (flip ($)) (defaultParameters files) xs
+    (_,_,errs)    -> do mapM_ putStrLn errs
+                        exitFailure
+  where
+    opts = 
+      [ Option [] ["out_hs"] 
+          (ReqArg (\arg p -> p { outputDir = arg }) "DIR")
+          "Directory to put generate files to"
+      , Option ['I'] []
+          (ReqArg (\arg p -> p { includes = includes p ++ [arg] }) "DIR")
+          "Include directory"
+        -- Dump flags
+      , Option [] ["dump-ast"]
+           (NoArg $ \p -> p { dumpAST = True })
+           "Dump AST"
+      ]
