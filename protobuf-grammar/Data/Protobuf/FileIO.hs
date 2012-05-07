@@ -7,12 +7,10 @@ module Data.Protobuf.FileIO (
 import Control.Applicative
 import Control.Monad
 import Control.Monad.IO.Class
-import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Error
 
 import Data.Monoid
 import qualified Data.Map as Map
-import           Data.Map   (Map)
 
 import System.Directory
 

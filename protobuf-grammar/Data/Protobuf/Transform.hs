@@ -29,7 +29,6 @@ import Data.Generics.Uniplate.Data
 import Data.Protobuf.AST
 import Data.Protobuf.Types
 import Data.Protobuf.DataTree
-import Debug.Trace
 
 
 ----------------------------------------------------------------
