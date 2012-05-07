@@ -7,11 +7,12 @@
 {-# OPTIONS_GHC -fno-warn-incomplete-patterns #-}
 module Data.Protobuf.Grammar.Lexer (
     Token(..)
-  , alexScanTokens
+  , scanTokens
   ) where
 
+import Text.Printf
 }
-%wrapper "basic"
+%wrapper "monad"
 
 $digit = 0-9			-- digits
 
@@ -27,22 +28,22 @@ tokens :-
   $white+               ;
   @comment              ;
   @comment2             ;
-  @decint               { TokInt . read       }
-  @octint               { error "OCTAL"       }
-  @hexint               { error "HEX"         }
-  @strlit               { TokString . unquote . init . tail }
-  @ident                { TokIdent            }
-  \{                    { const TokBraceOpen  }
-  \}                    { const TokBraceClose }
-  \[                    { const TokSBrkOpen   }
-  \]                    { const TokSBrkClose  }
-  \;                    { const TokSemicolon  }
-  \=                    { const TokEqual      }
-  \.                    { const TokDot        }
-  \,                    { const TokComma      }
+  @decint               { si $ TokInt . read }
+  @octint               { error "OCTAL"      }
+  @hexint               { error "HEX"        }
+  @strlit               { si $ TokString . unquote . init . tail }
+  @ident                { si $ TokIdent    }
+  \{                    { co TokBraceOpen  }
+  \}                    { co TokBraceClose }
+  \[                    { co TokSBrkOpen   }
+  \]                    { co TokSBrkClose  }
+  \;                    { co TokSemicolon  }
+  \=                    { co TokEqual      }
+  \.                    { co TokDot        }
+  \,                    { co TokComma      }
 {
 
--- | Token data type  
+-- | Token data type
 data Token
   = TokInt    Integer           --  Integer literal
   | TokDouble Rational          --  Floating point literal
@@ -56,11 +57,48 @@ data Token
   | TokEqual                    --  =
   | TokDot                      --  .
   | TokComma                    --  ,
-  deriving Show
+  | TokEOF                      --  End of file token
+  deriving (Show,Eq)
+
+scanTokens :: FilePath -> String -> Either String [Token]
+scanTokens fname str = runAlex str scan
+  where
+    scan = do
+      t <- alexCustomScan fname
+      case t of
+        TokEOF -> return []
+        _      -> do ts <- scan
+                     return (t : ts)
+
+-- Custom scanner. Slightly modified version of alexMonadScan
+alexCustomScan :: FilePath -> Alex Token
+alexCustomScan fname = do
+  inp <- alexGetInput
+  sc  <- alexGetStartCode
+  case alexScan inp sc of
+    AlexEOF -> alexEOF
+    AlexError ((AlexPn _ ln col),_,_,_) -> alexError $ printf "Lexical error in %s %i:%i" fname ln col
+    AlexSkip  inp' len -> do
+        alexSetInput inp'
+        alexCustomScan fname
+    AlexToken inp' len action -> do
+        alexSetInput inp'
+        action (ignorePendingBytes inp) len
+
+
+alexEOF = return TokEOF
+
 
 -- Remove quotations in the string literals
 -- FIXME: implement
 unquote :: String -> String
 unquote = id
 
+-- Simple parser
+si :: (String -> r) -> (AlexPosn,Char,String) -> Int -> Alex r
+si f (_,_,tok) n = return (f $ take n tok)
+
+-- Constant expression
+co :: r -> (AlexPosn,Char,String) -> Int -> Alex r
+co x _ _ = return x
 }

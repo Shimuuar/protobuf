@@ -73,5 +73,10 @@ addAbsolutePath b@(Bundle{..}) name
 
 -- Read PB file from disk
 readPbFile :: FilePath -> IO (ProtobufFile ())
-readPbFile nm =
-  (parseProtobuf . alexScanTokens) <$> readFile nm
+readPbFile nm = do
+  file <- readFile nm
+  toks <- case scanTokens nm file of
+            Left  err -> error err
+            Right x   -> return x
+  -- undefined
+  return $ parseProtobuf toks
