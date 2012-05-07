@@ -41,15 +41,23 @@ checkLabels :: Data a => ProtobufFile a -> PbMonad ()
 checkLabels pb = collectErrors $ do
   mapM_ checkMessage [ fs | Message  _ fs _ <- universeBi pb ]
   mapM_ checkEnum    [ fs | EnumDecl _ fs _ <- universeBi pb ]
+  mapM_ checkFieldTag $ universeBi pb
   where
+    -- Check for duplicate tags in message
     checkMessage fs = 
       when (labels /= nub labels) $
         oops "Duplicate label number"
       where labels = [ i | MessageField (Field _ _ _ (FieldTag i) _) <- fs ]
+    -- Check for duplicate tags in enumerations
     checkEnum fs = 
       when (labels /= nub labels) $
         oops "Duplicate label number"
       where labels = [ i | EnumField _ i <- fs ]
+    -- Check that tags are in range
+    checkFieldTag (FieldTag n)
+      | n < 1 || n > (2^(29::Int) - 1) = oops "Field tag is outside of range"
+      | n >= 19000 && n <= 19999       = oops "Field tag is in reserved range"
+      | otherwise                      = return ()
 
 
 
