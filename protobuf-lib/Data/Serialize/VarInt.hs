@@ -15,6 +15,9 @@ module Data.Serialize.VarInt (
   , getZigzag64
   , putZigzag32
   , putZigzag64
+    -- * Booleans
+  , getVarBool
+  , putVarBool
   ) where
 
 import Control.Applicative
@@ -106,6 +109,15 @@ getZigzag64 = dec64 <$> getVarWord64
 putZigzag64 :: Int64 -> Put
 putZigzag64 = putVarWord64 . enc64
 
+
+getVarBool :: Get Bool
+getVarBool = do
+  n <- getVarWord32
+  return $! n /= 0
+
+putVarBool :: Bool -> Put
+putVarBool True  = putVarWord32 1
+putVarBool False = putVarWord32 0
 
 dec32 :: Word32 -> Int32
 dec32 n 

@@ -7,6 +7,7 @@ module Data.Protobuf.Imports (
   , Word64
   , Int32
   , Int64
+  , Bool
   , Double
   , Float
   , String
@@ -20,21 +21,6 @@ module Data.Protobuf.Imports (
   , ap
   , mapM
   , mapM_
-    -- ** Decode functions
-    -- *** Varint encoded integrals
-  , getVarWord32
-  , getVarWord64
-  , putVarWord32
-  , putVarWord64
-  , getVarInt32
-  , getVarInt64
-  , putVarInt32
-  , putVarInt64
-    -- *** Zig-zag encoded integrals
-  , getZigzag32
-  , getZigzag64
-  , putZigzag32
-  , putZigzag64
     -- ** Converwsion
   , checkMaybe
   , checkMaybeMsg
@@ -54,6 +40,7 @@ module Data.Protobuf.Imports (
   , LoopType
     -- * Modules
   , module P'
+  , module Data.Serialize.VarInt
   ) where
 
 import Control.Monad (ap, liftM)
