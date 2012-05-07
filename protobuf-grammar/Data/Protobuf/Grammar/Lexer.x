@@ -10,7 +10,9 @@ module Data.Protobuf.Grammar.Lexer (
   , scanTokens
   ) where
 
-import Text.Printf
+import Data.Char    (digitToInt)
+import Text.Printf  (printf    )
+
 }
 %wrapper "monad"
 
@@ -28,9 +30,9 @@ tokens :-
   $white+               ;
   @comment              ;
   @comment2             ;
-  @decint               { si $ TokInt . read }
-  @octint               { error "OCTAL"      }
-  @hexint               { error "HEX"        }
+  @decint               { si $ TokInt . read       }
+  @octint               { si $ TokInt . parseOctal }
+  @hexint               { error "HEX"              }
   @strlit               { si $ TokString . unquote . init . tail }
   @ident                { si $ TokIdent    }
   \{                    { co TokBraceOpen  }
@@ -101,4 +103,16 @@ si f (_,_,tok) n = return (f $ take n tok)
 -- Constant expression
 co :: r -> (AlexPosn,Char,String) -> Int -> Alex r
 co x _ _ = return x
+
+-- Parse ocatal number
+parseOctal :: String -> Integer
+parseOctal [] = error "parseOctal: emptyString"
+parseOctal s  = go 0 s
+  where
+    go n []     = n
+    go n (c:cs)
+      | c < '0' || c > '7' = error "parseOctal: Invalid octal character"
+      | otherwise          = go (n * 8 + d) cs
+      where
+        d = fromIntegral $ digitToInt c
 }
