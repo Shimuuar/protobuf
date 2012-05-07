@@ -17,7 +17,7 @@ import Text.Printf
 $digit = 0-9			-- digits
 
 @decint   = [\-]?[1-9][0-9]*
-@octint   = [\-]?0[0-7]+
+@octint   = [\-]?0[0-7]*
 @hexint   = [\-]?0[Xx][0-9a-fA-F]+
 @strlit   = (\"[^\"]*\")|('[^']*\')
 @ident    = [a-zA-Z][a-zA-Z_0-9]*
