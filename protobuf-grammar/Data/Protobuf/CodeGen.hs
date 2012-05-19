@@ -68,10 +68,10 @@ importList
 convertDecl :: HsModule -> [Decl]
 -- [Message]
 convertDecl (HsMessage (TyName name) fields) =
-  [ DataDecl s (case fields of { [_] -> NewType; _ -> DataType })
+  [ DataDecl s typeKind
       [] (Ident name)
       [ UnkindedVar (Ident "r") ]
-      [ QualConDecl s [] [] $ RecDecl (Ident name) (map recordField fields)
+      [ QualConDecl s [] [] $ RecDecl (Ident name) $ map (recordField bang) fields
       ]
       []
   , DerivDecl s [] (qname "Show") [ tycon name `TyApp` qtycon "Checked"   ]
@@ -134,6 +134,11 @@ convertDecl (HsMessage (TyName name) fields) =
              Do [ Qualifier e | e <- zipWith putMessage ns fields ]
       ]
   ]
+  where
+    (typeKind,bang) =
+      case fields of
+        [_] -> (NewType,  UnBangedTy)
+        _   -> (DataType, BangedTy  )
 -- [Enum]
 convertDecl (HsEnum    (TyName name) fields) =
   [ DataDecl s DataType [] (Ident name) []
@@ -198,13 +203,13 @@ checkReq name fields =
 
 ----------------------------------------------------------------
 -- Single fields of record for message
-recordField :: HsField -> ([Name], BangType)
-recordField (HsField tp name _ _) =
+recordField :: (Hask.Type -> BangType) -> HsField -> ([Name], BangType)
+recordField bang (HsField tp name _ _) =
   ([Ident name], outerType tp)
   where
-    outerType (HsReq   t  ) = BangedTy $ qtycon "Val"   `TyApp` TyVar (Ident "r") `TyApp` innerType t
-    outerType (HsMaybe t  ) = BangedTy $ qtycon "Maybe" `TyApp` innerType t
-    outerType (HsSeq   t _) = BangedTy $ qtycon "Seq"   `TyApp` innerType t
+    outerType (HsReq   t  ) = bang $ qtycon "Val"   `TyApp` TyVar (Ident "r") `TyApp` innerType t
+    outerType (HsMaybe t  ) = bang $ qtycon "Maybe" `TyApp` innerType t
+    outerType (HsSeq   t _) = bang $ qtycon "Seq"   `TyApp` innerType t
 
     innerType (HsBuiltin     t) = primType t
     innerType (HsUserMessage q) = userType q
