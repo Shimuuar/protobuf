@@ -68,7 +68,8 @@ importList
 convertDecl :: HsModule -> [Decl]
 -- [Message]
 convertDecl (HsMessage (TyName name) fields) =
-  [ DataDecl s DataType [] (Ident name) 
+  [ DataDecl s (case fields of { [_] -> NewType; _ -> DataType })
+      [] (Ident name)
       [ UnkindedVar (Ident "r") ]
       [ QualConDecl s [] [] $ RecDecl (Ident name) (map recordField fields)
       ]
