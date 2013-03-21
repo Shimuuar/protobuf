@@ -4,7 +4,6 @@ module Data.Protobuf.Transform (
     checkLabels
     -- * Transformations
   , sortLabels
-  , mangleNames
   , removePackage
   , buildNamespace
   , resolveImports
@@ -71,26 +70,6 @@ sortLabels = transformBi (sortBy $ comparing tag)
   where
     tag (MessageField (Field _ _ _ (FieldTag t) _)) = t
     tag _                                           = -1
-
-
-
-----------------------------------------------------------------
--- | Stage 1. Mangle all names. No attempt is made to handle possible
---   name clashes
-mangleNames :: Data a => ProtobufFile a -> ProtobufFile a
-mangleNames 
-  = transformBi mangleFieldName
-  . transformBi mangleTypeName
-
--- Convert type/constructor/package name to upper case
-mangleTypeName :: Identifier TagType -> Identifier TagType
-mangleTypeName (Identifier (c:cs)) = Identifier $ toUpper c : cs
-mangleTypeName (Identifier "")     = error "Impossible happened: invalid field identifier"
-
--- Only field names in messages should start from lower case
-mangleFieldName :: Identifier TagField -> Identifier TagField
-mangleFieldName (Identifier (c:cs)) = Identifier $ toLower c : cs
-mangleFieldName (Identifier "")     = error "Impossible happened: invalid field identifier"
 
 
 ----------------------------------------------------------------
