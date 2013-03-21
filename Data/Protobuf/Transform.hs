@@ -145,7 +145,7 @@ addName n =
 --   in import are discovered during this stage. After this stage each
 --   protobuf file is self containted so we can discard bundle.
 resolveImports :: Bundle Namespace -> PbMonad [ProtobufFile Namespace]
-resolveImports b@(Bundle ps imap pmap) =
+resolveImports b@(Bundle ps _ pmap) =
   mapM (resolvePkgImport b) [ pmap ! n | n <- ps ]
 
 resolvePkgImport :: Bundle Namespace -> ProtobufFile Namespace -> PbMonad (ProtobufFile Namespace)
