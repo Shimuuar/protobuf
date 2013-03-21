@@ -12,7 +12,7 @@ data ProtobufFile n
   = ProtobufFile [Protobuf] [Identifier TagType] n
     deriving (Show,Typeable,Data)
 
--- | top level declarations
+-- | Top level declarations
 data Protobuf =
     Import      String
     -- ^ Import declaration
@@ -28,11 +28,17 @@ data Protobuf =
     -- ^ Top level option
   deriving (Show,Typeable,Data)
 
--- | Enumeration declaration
+-- | Enumeration declaration. Parameters are
+--
+--   * Enum name
+--
+--   * Fields of enumeration
+--
+--   * Location in namespace
 data EnumDecl = EnumDecl 
-                (Identifier TagType) -- Enum name
-                [EnumField]          -- Enum fields
-                [Identifier TagType] -- Location in namespace
+                (Identifier TagType)
+                [EnumField]
+                [Identifier TagType]
                 deriving (Show,Typeable,Data)
 
 -- | Enumeration field
@@ -42,10 +48,16 @@ data EnumField
   deriving (Show,Typeable,Data)
 
 -- | Message declaration
+--
+--   * Message name
+--
+--   * Message fields
+--
+--   * Location in namespace (message name included)
 data Message = Message 
-               (Identifier TagType) -- Message name
-               [MessageField]       -- Message fiedls
-               [Identifier TagType] -- Location in namespace (message name included)
+               (Identifier TagType)
+               [MessageField]
+               [Identifier TagType]
                deriving (Show,Typeable,Data)
 
 -- | Single field in message body. Note that groups are not supported.

@@ -65,7 +65,7 @@ checkLabels pb = collectErrors $ do
 -- Normalization
 ----------------------------------------------------------------
 
--- Sort fields in message declarations by tag
+-- | Sort fields in message declarations by tag
 sortLabels :: Data a => ProtobufFile a -> ProtobufFile a
 sortLabels = transformBi (sortBy $ comparing tag)
   where
@@ -75,7 +75,7 @@ sortLabels = transformBi (sortBy $ comparing tag)
 
 
 ----------------------------------------------------------------
--- * Stage 1. Mangle all names. No attempt is made to handle possible
+-- | Stage 1. Mangle all names. No attempt is made to handle possible
 --   name clashes
 mangleNames :: Data a => ProtobufFile a -> ProtobufFile a
 mangleNames 
@@ -94,7 +94,7 @@ mangleFieldName (Identifier "")     = error "Impossible happened: invalid field 
 
 
 ----------------------------------------------------------------
--- * Stage 2. Add package declaration to ProtobufFile
+-- | Stage 2. Add package declaration to ProtobufFile
 removePackage :: ProtobufFile a -> PbMonad (ProtobufFile a)
 removePackage (ProtobufFile pb _ x) = do
   p <- case [ p | Package p <- pb ] of
@@ -105,7 +105,7 @@ removePackage (ProtobufFile pb _ x) = do
 
 
 ----------------------------------------------------------------
--- * Stage 3. Build and cache namespaces. During this stage name
+-- | Stage 3. Build and cache namespaces. During this stage name
 --   collisions are discovered and repored as errors. Package
 --   namespace is added to global namespace.
 buildNamespace :: ProtobufFile a -> PbMonad (ProtobufFile Namespace)
@@ -162,7 +162,7 @@ addName n =
 
 
 ----------------------------------------------------------------
--- * Stage 4. Resolve imports and build global namespace. Name clashes
+-- | Stage 4. Resolve imports and build global namespace. Name clashes
 --   in import are discovered during this stage. After this stage each
 --   protobuf file is self containted so we can discard bundle.
 resolveImports :: Bundle Namespace -> PbMonad [ProtobufFile Namespace]
@@ -180,7 +180,7 @@ resolvePkgImport (Bundle _ imap pmap) (ProtobufFile pb qs names) = do
 
 
 ----------------------------------------------------------------
--- * Stage 5. Resolve all names. All type names at this point are
+-- | Stage 5. Resolve all names. All type names at this point are
 --   converted into fully qualifie form.
 resolveTypeNames :: ProtobufFile Namespace -> PbMonad (ProtobufFile Namespace)
 resolveTypeNames p@(ProtobufFile _ _ global) =
