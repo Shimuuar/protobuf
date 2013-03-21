@@ -1,0 +1,39 @@
+Name:           protobuf
+Version:        0.0.1
+Cabal-Version:  >= 1.6
+License:        BSD3
+License-File:   LICENSE
+Author:         Aleksey Khudyakov <alexey.skladnoy@gmail.com>
+Maintainer:     Aleksey Khudyakov <alexey.skladnoy@gmail.com>
+Homepage:       http://bitbucket.org/Shimuuar/protobuf-grammar
+Category:       Data
+Build-Type:     Simple
+Synopsis:       Compiler for google protocol buffers
+Description:
+  <<<DESCRIPTION>>>
+
+source-repository head
+  type:     hg
+  location: http://bitbucket.org/Shimuuar/protobuf-grammar
+
+Library
+  Ghc-options:          -Wall
+  Build-tools:          alex, happy
+  Build-Depends:
+    base           >=3 && <5,
+    containers,
+    mtl            > 2,
+    transformers,
+    uniplate,
+    directory,
+    array,
+    groom,
+    ansi-wl-pprint
+  Exposed-modules:
+    Data.Protobuf.AST
+    Data.Protobuf.Grammar.Parser
+    Data.Protobuf.Grammar.Lexer
+    Data.Protobuf.Types
+    Data.Protobuf.FileIO
+    Data.Protobuf.Transform
+    Data.Protobuf.DataTree
