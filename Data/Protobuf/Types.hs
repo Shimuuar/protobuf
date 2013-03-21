@@ -7,7 +7,7 @@ module Data.Protobuf.Types (
   , applyBundle
   , applyBundleM
   , applyBundleM_
-    -- *
+    -- * Namespaces
   , Qualified(..)
   , addQualifier
   , addQualList
@@ -19,11 +19,11 @@ module Data.Protobuf.Types (
   , findQualName
   , insertName
   , mergeNamespaces
-    -- *
+    -- * Name resolution
   , Names(..)
   , resolveName
   , nameDown
-    -- *
+    -- * Monads
   , PbMonad
   , runPbMonad
   , PbMonadE
@@ -199,14 +199,17 @@ resolveNameWorker namespace qs n =
 ----------------------------------------------------------------
 
 -- | Context for protobuf
-data PbContext = PbContext { includePaths :: [String]
-                           }
+data PbContext = PbContext
+  { includePaths :: [String]
+    -- ^ List of include path
+  }
 
--- | Monad for reading and transformations
+-- | Monad for working with protobuf source tree.
 type PbMonad =
   ErrorT String
    (ReaderT PbContext IO)
 
+-- | Execute PbMonad
 runPbMonad :: PbContext -> PbMonad a -> IO (Either String a)
 runPbMonad cxt
   = flip runReaderT cxt
@@ -222,6 +225,7 @@ type PbMonadE =
 oops :: String -> PbMonadE()
 oops = tell . (:[])
 
+-- | Collect all non-fatal errors. If there are any raise an error.
 collectErrors :: PbMonadE a -> PbMonad a
 collectErrors m = do
   (x,errs) <- runWriterT m
