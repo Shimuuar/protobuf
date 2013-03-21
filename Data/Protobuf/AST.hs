@@ -12,11 +12,6 @@ data ProtobufFile n
   = ProtobufFile [Protobuf] [Identifier TagType] n
     deriving (Show,Typeable,Data)
 
--- | Newtype wrapper which is used to ditinguish between package
---   namespace and global namespace
-newtype Global a = Global a
-                 deriving (Show,Typeable,Data)
-
 -- | top level declarations
 data Protobuf =
     Import      String
