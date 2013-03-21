@@ -79,4 +79,5 @@ readPbFile nm = do
             Left  err -> error err
             Right x   -> return x
   -- undefined
-  return $ parseProtobuf toks
+  let ps = parseProtobuf toks
+  return $ ProtobufFile ps [] ()

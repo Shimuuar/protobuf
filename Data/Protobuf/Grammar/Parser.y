@@ -59,14 +59,11 @@ import Data.Protobuf.AST
 
 %%
 
-Protobuf :: { ProtobufFile () }
-  : ProtobufDecls       { ProtobufFile $1 [] () }
-
 -- Complete protobuf file
-ProtobufDecls
-  : {- empty -}               { [] }
-  | Declaration ProtobufDecls { $1 : $2 }
-  | ";"         ProtobufDecls { $2 }
+Protobuf
+  : {- empty -}          { [] }
+  | Declaration Protobuf { $1 : $2 }
+  | ";"         Protobuf { $2 }
 
 -- Top level declaration
 Declaration
