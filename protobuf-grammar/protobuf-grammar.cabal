@@ -19,21 +19,24 @@ source-repository head
 Executable protoc-hs
   Ghc-options:          -Wall
   Main-Is:              driver.hs
-  Build-Depends:        base >=3 && <5,
-                        containers,
-                        mtl > 2,
-                        transformers,
-                        uniplate,
-                        directory,
-                        array,
-                        haskell-src-exts,
-                        groom, ansi-wl-pprint
+  Build-Depends:
+    base >=3 && <5,
+    containers,
+    mtl > 2,
+    transformers,
+    uniplate,
+    directory,
+    array,
+    haskell-src-exts,
+    groom,
+    ansi-wl-pprint
   Build-tools:          alex, happy
-  Other-modules:        Data.Protobuf.AST
-                        Data.Protobuf.Grammar.Parser
-                        Data.Protobuf.Grammar.Lexer
-                        Data.Protobuf.Types
-                        Data.Protobuf.FileIO
-                        Data.Protobuf.Transform
-                        Data.Protobuf.DataTree
-                        Data.Protobuf.CodeGen
+  Other-modules:
+    Data.Protobuf.AST
+    Data.Protobuf.Grammar.Parser
+    Data.Protobuf.Grammar.Lexer
+    Data.Protobuf.Types
+    Data.Protobuf.FileIO
+    Data.Protobuf.Transform
+    Data.Protobuf.DataTree
+    Data.Protobuf.CodeGen
