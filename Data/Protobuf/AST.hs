@@ -5,12 +5,7 @@ module Data.Protobuf.AST where
 
 import Data.List (intercalate)
 import Data.Data
-
--- | Protocol buffer file. 
---   Parameter 'n' stands for namespace type. Since new namespaces are introduced in file 
-data ProtobufFile n
-  = ProtobufFile [Protobuf] [Identifier TagType] n
-    deriving (Show,Typeable,Data)
+import Data.Protobuf.Names
 
 -- | Top level declarations
 data Protobuf =
@@ -91,33 +86,7 @@ data Field = Field Modifier Type (Identifier TagField) FieldTag [Option]
 -- Basic types
 ----------------------------------------------------------------
 
--- | Qualified name
-data Qualified t a = Qualified [Identifier t] a
-                     deriving (Show,Eq,Ord,Typeable,Data)
 
-addQualifier :: Identifier t -> Qualified t a -> Qualified t a
-addQualifier q (Qualified qs x) = Qualified (q:qs) x
-
-addQualList :: [Identifier t] -> Qualified t a -> Qualified t a
-addQualList q (Qualified qs x) = Qualified (q ++ qs) x
-
-
--- | Tag for data types
-data TagType   = TagType    deriving (Typeable,Data)
-data TagField  = TagField   deriving (Typeable,Data)
-data TagOption = TagOption  deriving (Typeable,Data)
-
-castIdent :: Identifier t -> Identifier q
-castIdent = Identifier . identifier
-
-castQIdent :: Qualified t (Identifier t) -> Qualified q (Identifier q)
-castQIdent (Qualified xs x) = Qualified (map castIdent xs) (castIdent x)
-
--- | Simple unqualified identifier.
-newtype Identifier t = Identifier { identifier :: String }
-                   deriving (Typeable,Data,Eq,Ord)
-instance Show (Identifier t) where
-  show = show . identifier
 
 
 -- | General form of identifier

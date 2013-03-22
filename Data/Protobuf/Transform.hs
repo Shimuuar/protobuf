@@ -1,15 +1,16 @@
+{-# LANGUAGE DeriveDataTypeable #-}
 -- | Transofrmation of protobug AST
-module Data.Protobuf.Transform (
-    -- * Validation
-    checkLabels
-    -- * Transformations
-  , sortLabels
-  , removePackage
-  , buildNamespace
-  , resolveImports
-  , resolveTypeNames
-  , toHaskellTree
-  ) where
+module Data.Protobuf.Transform where
+  --   -- * Validation
+  --   checkLabels
+  --   -- * Transformations
+  -- , sortLabels
+  -- , removePackage
+  -- , buildNamespace
+  -- , resolveImports
+  -- , resolveTypeNames
+  -- , toHaskellTree
+  -- ) where
 
 import Control.Applicative
 import Control.Monad
@@ -17,8 +18,7 @@ import Control.Monad.State
 import Control.Monad.Error
 
 import Data.Map        ((!))
-import Data.Char
-import Data.Data                 (Data)
+import Data.Data                 (Data,Typeable)
 import Data.Ord
 import Data.List
 import Data.Monoid
@@ -26,6 +26,7 @@ import Data.Monoid
 import Data.Generics.Uniplate.Data
 
 import Data.Protobuf.AST
+import Data.Protobuf.Names
 import Data.Protobuf.Types
 import Data.Protobuf.DataTree
 
@@ -34,9 +35,8 @@ import Data.Protobuf.DataTree
 -- Validation
 ----------------------------------------------------------------
 
-
 -- | Check that there are no duplicate label numbers
-checkLabels :: Data a => ProtobufFile a -> PbMonad ()
+checkLabels :: [Protobuf] -> PbMonad ()
 checkLabels pb = collectErrors $ do
   mapM_ checkMessage [ fs | Message  _ fs _ <- universeBi pb ]
   mapM_ checkEnum    [ fs | EnumDecl _ fs _ <- universeBi pb ]
@@ -64,34 +64,46 @@ checkLabels pb = collectErrors $ do
 -- Normalization
 ----------------------------------------------------------------
 
--- | Sort fields in message declarations by tag
-sortLabels :: Data a => ProtobufFile a -> ProtobufFile a
+-- | Sort fields in message declarations by tag.
+sortLabels :: [Protobuf] -> [Protobuf]
 sortLabels = transformBi (sortBy $ comparing tag)
   where
     tag (MessageField (Field _ _ _ (FieldTag t) _)) = t
     tag _                                           = -1
 
 
-----------------------------------------------------------------
--- | Stage 2. Add package declaration to ProtobufFile
-removePackage :: ProtobufFile a -> PbMonad (ProtobufFile a)
-removePackage (ProtobufFile pb _ x) = do
-  p <- case [ p | Package p <- pb ] of
-         []               -> return []
-         [Qualified qs q] -> return (qs ++ [q])
-         _ -> throwError "Multiple package declarations"
-  return $ ProtobufFile pb p x
-
 
 ----------------------------------------------------------------
+-- Name resolution
+----------------------------------------------------------------
+
+-- | Protocol buffer file. 
+--   Parameter 'n' stands for namespace type. Since new namespaces are introduced in file 
+data ProtobufFile = ProtobufFile
+  { protobufFile      :: [Protobuf]
+    -- ^ List of all protocol buffer statements
+  , protobufPackage   :: [Identifier TagType]
+    -- ^ Package name
+  , protobufNamespace :: Namespace
+    -- ^ All names in the package
+  }
+  deriving (Show,Typeable,Data)
+
 -- | Stage 3. Build and cache namespaces. During this stage name
 --   collisions are discovered and repored as errors. Package
 --   namespace is added to global namespace.
-buildNamespace :: ProtobufFile a -> PbMonad (ProtobufFile Namespace)
-buildNamespace (ProtobufFile pb qs _) =
-  collectErrors $ do
-    (pb',ns) <- runNamespace $ mapM (collectPackageNames qs) pb
-    return $ ProtobufFile pb' qs (foldr packageNamespace ns qs)
+buildNamespace :: [Protobuf] -> PbMonad ProtobufFile
+buildNamespace pb = do
+  -- Find out package name
+  pkg <- case [ p | Package p <- pb ] of
+           []               -> return []
+           [Qualified qs q] -> return (qs ++ [q])
+           _                -> throwError "Multiple package declarations"
+  -- Build namespace
+  (pb',names) <- collectErrors $ do
+    runNamespace $ mapM (collectPackageNames pkg) pb
+  return $ ProtobufFile pb' pkg (foldr packageNamespace names pkg)
+
 
 -- Collect all names in package
 collectPackageNames :: [Identifier TagType] -> Protobuf -> NameCollector Protobuf
@@ -139,7 +151,7 @@ addName n =
   put =<< lift . flip insertName n =<< get
 
 
-
+{-
 ----------------------------------------------------------------
 -- | Stage 4. Resolve imports and build global namespace. Name clashes
 --   in import are discovered during this stage. After this stage each
@@ -224,3 +236,4 @@ fieldToHask (Field m t n tag opts) =
       (EnumType (FullQualId qs n)) -> HsUserEnum    (Qualified qs n)
       _ -> error "Impossible happened: name isn't fully qualifed"
 
+-}

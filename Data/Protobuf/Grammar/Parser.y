@@ -5,6 +5,8 @@ module Data.Protobuf.Grammar.Parser (
 
 import Data.Protobuf.Grammar.Lexer
 import Data.Protobuf.AST
+import Data.Protobuf.Names
+
 }
 
 %name      parseProtobuf Protobuf
@@ -177,5 +179,11 @@ BuiltinType
 
 parseError :: [Token] -> a
 parseError = error . ("ERROR: " ++) . show
+
+castIdent :: Identifier t -> Identifier q
+castIdent = Identifier . identifier
+
+castQIdent :: Qualified t (Identifier t) -> Qualified q (Identifier q)
+castQIdent (Qualified xs x) = Qualified (map castIdent xs) (castIdent x)
 
 }

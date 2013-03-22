@@ -22,6 +22,7 @@ import qualified Data.Map as Map
 import           Data.Map   (Map)
 
 import Data.Protobuf.AST
+import Data.Protobuf.Names
 import Data.Protobuf.Types (PbMonad)
 
 
