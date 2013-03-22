@@ -53,8 +53,8 @@ data HsType
 -- | Name of type.
 data HsTypename
   = HsBuiltin     PrimType
-  | HsUserMessage (Qualified TagType (Identifier TagType))
-  | HsUserEnum    (Qualified TagType (Identifier TagType))
+  | HsUserMessage (Qualified TagType)
+  | HsUserEnum    (Qualified TagType)
   deriving (Show,Data,Typeable)
 
 

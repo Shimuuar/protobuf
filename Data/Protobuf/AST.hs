@@ -11,7 +11,7 @@ import Data.Protobuf.Names
 data Protobuf =
     Import      String
     -- ^ Import declaration
-  | Package     (Qualified TagType (Identifier TagType))
+  | Package     (Qualified TagType)
     -- ^ Specify package for module
   | TopMessage  Message
     -- ^ Message type
@@ -136,10 +136,10 @@ data PrimType
   | PbBytes    -- ^ Byte sequence
   deriving (Show,Typeable,Data)
 
-data Option = Option (Qualified TagOption (Identifier TagOption)) OptionVal
+data Option = Option (Qualified TagOption) OptionVal
             deriving (Show,Typeable,Data)
 
-lookupOption :: Qualified TagOption (Identifier TagOption) -> [Option] -> Maybe OptionVal
+lookupOption :: Qualified TagOption -> [Option] -> Maybe OptionVal
 lookupOption _ [] = Nothing
 lookupOption q (Option qi v : opts)
   | q == qi   = Just v

@@ -54,15 +54,15 @@ data TagOption = TagOption  deriving (Typeable,Data)
 
 
 -- | Qualified identifier
-data Qualified t a = Qualified [Identifier t] a
-                     deriving (Show,Eq,Ord,Typeable,Data)
+data Qualified t = Qualified [Identifier t] (Identifier t)
+                 deriving (Show,Eq,Ord,Typeable,Data)
 
 -- | Add single qualifier
-addQualifier :: Identifier t -> Qualified t a -> Qualified t a
+addQualifier :: Identifier t -> Qualified t -> Qualified t
 addQualifier q (Qualified qs x) = Qualified (q:qs) x
 
 -- | Add list of qualifiers.
-addQualList :: [Identifier t] -> Qualified t a -> Qualified t a
+addQualList :: [Identifier t] -> Qualified t -> Qualified t
 addQualList q (Qualified qs x) = Qualified (q ++ qs) x
 
 

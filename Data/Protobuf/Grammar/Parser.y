@@ -148,7 +148,7 @@ QualifiedId :: { QIdentifier }
                          Qualified xs x -> QualId xs x
                      }
 -- Worker for qulified identifiers
-QIdent :: { Qualified () (Identifier ()) }
+QIdent :: { Qualified () }
   : Ident            { Qualified [] $1 }
   | Ident "." QIdent { case $3 of
                          Qualified qs x -> Qualified ($1 : qs) x 
@@ -183,7 +183,7 @@ parseError = error . ("ERROR: " ++) . show
 castIdent :: Identifier t -> Identifier q
 castIdent = Identifier . identifier
 
-castQIdent :: Qualified t (Identifier t) -> Qualified q (Identifier q)
+castQIdent :: Qualified t -> Qualified q
 castQIdent (Qualified xs x) = Qualified (map castIdent xs) (castIdent x)
 
 }
