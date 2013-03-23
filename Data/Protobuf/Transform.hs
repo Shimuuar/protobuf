@@ -1,23 +1,26 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 -- | Transofrmation of protobug AST
-module Data.Protobuf.Transform where
-  --   -- * Validation
-  --   checkLabels
-  --   -- * Transformations
-  -- , sortLabels
-  -- , removePackage
-  -- , buildNamespace
-  -- , resolveImports
-  -- , resolveTypeNames
-  -- , toHaskellTree
-  -- ) where
+module Data.Protobuf.Transform (
+    -- * Loading
+    Bundle(..)
+  , loadPbFiles
+    -- * Validation
+  , checkLabels
+    -- * Transformations
+  , sortLabels
+  , ProtobufFile(..)
+  , buildNamespace
+  , mergeImports
+  , resolveTypeNames
+  ) where
 
 import Control.Applicative
 import Control.Monad
 import Control.Monad.State
 import Control.Monad.Error
 
-import Data.Map        ((!))
+import qualified Data.Map         as Map
+import           Data.Map           (Map,(!))
 import Data.Data                 (Data,Typeable)
 import Data.Ord
 import Data.List
@@ -29,13 +32,50 @@ import Data.Protobuf.AST
 import Data.Protobuf.Names
 import Data.Protobuf.Types
 import Data.Protobuf.DataTree
+import Data.Protobuf.FileIO
+
+
+
+----------------------------------------------------------------
+-- Import resolution
+----------------------------------------------------------------
+
+-- | This data type contain all protobuf files which should be
+--   processed.
+data Bundle a = Bundle
+  { processedFiles :: [a]
+    -- ^
+  , importMap  :: DMap String FilePath a
+    -- ^ Maps import strings to the pathes in the file system
+  }
+  deriving (Typeable)
+
+
+-- | Read all protobuf files and build map of all imports. 
+loadPbFiles :: [FilePath] -> PbMonad (Bundle [Protobuf])
+loadPbFiles fnames = do
+  srcs <- mapM readPbFile fnames
+  dmap <- flip execStateT emptyDMap
+        $ mapM_ loadImports $ concat srcs
+  return $ Bundle srcs dmap
+
+-- Load imported protobuf files recursively
+loadImports :: Protobuf -> StateT (DMap String FilePath [Protobuf]) PbMonad ()
+loadImports (Import str) = do
+  (r,dmap) <- lift . insertDMapM findImport readPbFile str =<< get
+  put dmap
+  case r of
+    Nothing -> return ()
+    Just ps -> mapM_ loadImports ps
+loadImports _ = return ()
+  
 
 
 ----------------------------------------------------------------
 -- Validation
 ----------------------------------------------------------------
 
--- | Check that there are no duplicate label numbers
+-- | Check that there are no duplicate label numbers.
 checkLabels :: [Protobuf] -> PbMonad ()
 checkLabels pb = collectErrors $ do
   mapM_ checkMessage [ fs | Message  _ fs _ <- universeBi pb ]
@@ -74,11 +114,10 @@ sortLabels = transformBi (sortBy $ comparing tag)
 
 
 ----------------------------------------------------------------
--- Name resolution
+-- Namespace building
 ----------------------------------------------------------------
 
--- | Protocol buffer file. 
---   Parameter 'n' stands for namespace type. Since new namespaces are introduced in file 
+-- | Protocol buffer file. In addition of the 
 data ProtobufFile = ProtobufFile
   { protobufFile      :: [Protobuf]
     -- ^ List of all protocol buffer statements
@@ -89,9 +128,13 @@ data ProtobufFile = ProtobufFile
   }
   deriving (Show,Typeable,Data)
 
--- | Stage 3. Build and cache namespaces. During this stage name
---   collisions are discovered and repored as errors. Package
---   namespace is added to global namespace.
+-- | This function does two things at once.
+--
+--   1. It builds set of all names in the current module which will be
+--      later used in the name resolution.
+--
+--   2. All names of messages and enums declared in the module are
+--      fully qualified with module name.
 buildNamespace :: [Protobuf] -> PbMonad ProtobufFile
 buildNamespace pb = do
   -- Find out package name
@@ -113,7 +156,7 @@ collectPackageNames path (TopEnum    e) =
   TopEnum    <$> collectEnumNames    path e
 collectPackageNames _ x = return x
 
--- Get namspace for a message
+-- Get namespace for a message
 collectMessageNames :: [Identifier TagType] -> Message -> NameCollector Message
 collectMessageNames path (Message name fields _) = do
   let path' = path ++ [name]
@@ -130,7 +173,7 @@ collectEnumNames path (EnumDecl name fields _) = do
 
 -- Collect names from the fields
 collectFieldNames :: [Identifier TagType] -> MessageField -> NameCollector MessageField
-collectFieldNames path f@(MessageField (Field _ _ n _ _)) =
+collectFieldNames _ f@(MessageField (Field _ _ n _ _)) =
   f <$ addName (FieldName $ Identifier $ identifier n)
 collectFieldNames path (Nested m) =
   Nested <$> collectMessageNames path m
@@ -151,29 +194,38 @@ addName n =
   put =<< lift . flip insertName n =<< get
 
 
-{-
+
 ----------------------------------------------------------------
--- | Stage 4. Resolve imports and build global namespace. Name clashes
---   in import are discovered during this stage. After this stage each
---   protobuf file is self containted so we can discard bundle.
-resolveImports :: Bundle Namespace -> PbMonad [ProtobufFile Namespace]
-resolveImports b@(Bundle ps _ pmap) =
-  mapM (resolvePkgImport b) [ pmap ! n | n <- ps ]
+-- Merge imports into namespace
+----------------------------------------------------------------
 
-resolvePkgImport :: Bundle Namespace -> ProtobufFile Namespace -> PbMonad (ProtobufFile Namespace)
-resolvePkgImport (Bundle _ imap pmap) (ProtobufFile pb qs names) = do
-  global <- collectErrors
-          $ foldM mergeNamespaces names
-          [ ns | ProtobufFile _ _ ns <- [ pmap ! (imap ! i) | Import i <- pb ]
-          ]
-  return $ ProtobufFile pb qs global
-
+mergeImports :: DMap String FilePath ProtobufFile -> ProtobufFile -> PbMonad ProtobufFile
+mergeImports impMap (ProtobufFile ps pkg names) = do
+  names' <- collectErrors
+          $ foldM mergeNamespaces names [ loadImport i | Import i <- ps ]
+  return $ ProtobufFile ps pkg names'
+  where
+    loadImport str =
+      case str `lookupDMap` impMap of
+        Just p  -> protobufNamespace p
+        Nothing -> error "Impossible happened: import could not be resolved"
 
 
 ----------------------------------------------------------------
--- | Stage 5. Resolve all names. All type names at this point are
---   converted into fully qualifie form.
-resolveTypeNames :: ProtobufFile Namespace -> PbMonad (ProtobufFile Namespace)
+-- Name resolution
+----------------------------------------------------------------
+
+
+-- | Resolves all type names.
+--
+--   Postconditions:
+--
+--   * All type names are fully qualified
+--   * There is no 'SomeName' constructors 
+resolveTypeNames :: ProtobufFile -> PbMonad ProtobufFile
+-- Name resolution is local to message. Since by this time fully
+-- qualified message name is known we know scope for message and also
+-- we have all available names.
 resolveTypeNames p@(ProtobufFile _ _ global) =
   collectErrors $ transformBiM resolve p
   where
@@ -187,53 +239,30 @@ resolveTypeNames p@(ProtobufFile _ _ global) =
       return $ MessageField $ Field m qt n tag o
     resolveField _ x = return x
 
+
+-- | Set of namespaces. First parameter is global namespace and second
+--   is current path into namespace
+data Names = Names Namespace [(Identifier TagType)]
+           deriving (Show,Typeable,Data)
+
+resolveName :: Names -> QIdentifier -> PbMonadE (Qualified TagType SomeName)
+resolveName (Names global _ ) (FullQualId q) = resolveNameWorker global q
+resolveName (Names global []) (QualId     q) = resolveNameWorker global q
+resolveName (Names global path) name@(QualId qname) =
+  case findQualName global $ addQualList path qname of
+    Just x  -> return x
+    Nothing -> resolveName (Names global (init path)) name
+
+resolveNameWorker :: Namespace
+                  -> QualifiedId TagType
+                  -> PbMonadE (Qualified TagType SomeName)
+resolveNameWorker namespace qname =
+  case findQualName namespace qname of
+    Just x  -> return x
+    Nothing -> do oops $ "Cannot find name" ++ show qname
+                  return $ Qualified [] $ EnumName $ Identifier "<<<DUMMY>>>"
+
 toTypename :: Qualified TagType SomeName -> PbMonadE Type
-toTypename (Qualified qs (MsgName  nm _)) = return $ MsgType  $ FullQualId qs nm
-toTypename (Qualified qs (EnumName nm  )) = return $ EnumType $ FullQualId qs nm
+toTypename (Qualified qs (MsgName  nm _)) = return $ MsgType  $ FullQualId $ Qualified qs nm
+toTypename (Qualified qs (EnumName nm  )) = return $ EnumType $ FullQualId $ Qualified qs nm
 toTypename _ = throwError "Not a type name"
-
-
-
-----------------------------------------------------------------
--- * Stage 6. Convert AST to haskell representation
-toHaskellTree :: [ProtobufFile Namespace] -> PbMonad DataTree
-toHaskellTree pb =
-  DataTree <$> runCollide (mconcat decls)
-  where
-    decls =  [ enumToHask    e | e <- universeBi pb ]
-          ++ [ messageToHask m | m <- universeBi pb ]
-
--- Convert enumeration to haskell
-enumToHask :: EnumDecl -> CollideMap [Identifier TagType] HsModule
-enumToHask (EnumDecl iname@(Identifier name) fields qs) =
-  collide (qs ++ [iname]) $ HsEnum (TyName name)
-  [ (TyName n, i) | EnumField (Identifier n) i <- fields ]
-
--- Convert message to haskell
-messageToHask :: Message -> CollideMap [Identifier TagType] HsModule
-messageToHask (Message (Identifier name) fields qs) =
-  collide qs $ HsMessage (TyName name) [fieldToHask f | MessageField f <- fields]
-
--- Convert field to haskell
-fieldToHask :: Field -> HsField
-fieldToHask (Field m t n tag opts) =
-  -- FIXME: pragmas' names are mangled as well!!!
-  HsField (con hsTy) (identifier n) tag (lookupOptionStr "default" opts)
-  where
-    packed = case lookupOptionStr "packed" opts of
-               Nothing          -> False
-               Just (OptBool f) -> f
-               _                -> error "Impossible happened: wrong `packed' option"
-    -- case 
-    -- Haskell field outer type
-    con = case m of Required -> HsReq
-                    Optional -> HsMaybe
-                    Repeated -> flip HsSeq packed
-    -- Haskell field inner type
-    hsTy = case t of
-      BaseType  ty                 -> HsBuiltin  ty
-      (MsgType  (FullQualId qs n)) -> HsUserMessage (Qualified qs n)
-      (EnumType (FullQualId qs n)) -> HsUserEnum    (Qualified qs n)
-      _ -> error "Impossible happened: name isn't fully qualifed"
-
--}

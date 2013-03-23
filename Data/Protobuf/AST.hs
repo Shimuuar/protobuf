@@ -1,6 +1,9 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 -- |
 -- Abstract syntax tree for protobuf file
+--
+-- Message and enum names are represented as their name and path to
+-- the name in global namespace.
 module Data.Protobuf.AST where
 
 import Data.List (intercalate)
@@ -11,7 +14,7 @@ import Data.Protobuf.Names
 data Protobuf =
     Import      String
     -- ^ Import declaration
-  | Package     (Qualified TagType)
+  | Package     (QualifiedId TagType)
     -- ^ Specify package for module
   | TopMessage  Message
     -- ^ Message type
@@ -86,18 +89,15 @@ data Field = Field Modifier Type (Identifier TagField) FieldTag [Option]
 -- Basic types
 ----------------------------------------------------------------
 
-
-
-
--- | General form of identifier
+-- | Data type identifier
 data QIdentifier 
-  = QualId     [Identifier TagType] (Identifier TagType) -- ^ Qualified identifier
-  | FullQualId [Identifier TagType] (Identifier TagType) -- ^ Fully qualified identifier
+  = QualId     (QualifiedId TagType) -- ^ Qualified identifier
+  | FullQualId (QualifiedId TagType) -- ^ Fully qualified identifier
   deriving (Typeable,Data)
 
 instance Show QIdentifier where
-  show (QualId     ns n) = show $ intercalate "." $ map identifier (ns ++ [n])
-  show (FullQualId ns n) = show $ ('.' :) $ intercalate "." $ map identifier (ns ++ [n])
+  show (QualId     n) = show n
+  show (FullQualId n) = '.' : show n
 
 
 -- | Field tag
@@ -136,10 +136,10 @@ data PrimType
   | PbBytes    -- ^ Byte sequence
   deriving (Show,Typeable,Data)
 
-data Option = Option (Qualified TagOption) OptionVal
+data Option = Option (QualifiedId TagOption) OptionVal
             deriving (Show,Typeable,Data)
 
-lookupOption :: Qualified TagOption -> [Option] -> Maybe OptionVal
+lookupOption :: QualifiedId TagOption -> [Option] -> Maybe OptionVal
 lookupOption _ [] = Nothing
 lookupOption q (Option qi v : opts)
   | q == qi   = Just v

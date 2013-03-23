@@ -9,6 +9,7 @@ module Data.Protobuf.Names (
   , TagField(..)
   , TagOption(..)
     -- ** Qualified
+  , QualifiedId
   , Qualified(..)
   , addQualifier
   , addQualList
@@ -21,9 +22,13 @@ module Data.Protobuf.Names (
     -- ** Modification
   , insertName
   , mergeNamespaces
+    -- ** Lookup
+  , findName
+  , findQualName
   ) where
 
-import Data.Data  (Typeable,Data)
+import Data.Data    (Typeable,Data)
+import Data.Functor ((<$>))
 import Data.Ord
 import Data.Function
 import qualified Data.Map         as Map
@@ -53,16 +58,18 @@ data TagField  = TagField   deriving (Typeable,Data)
 data TagOption = TagOption  deriving (Typeable,Data)
 
 
+type QualifiedId t = Qualified t (Identifier t)
+
 -- | Qualified identifier
-data Qualified t = Qualified [Identifier t] (Identifier t)
-                 deriving (Show,Eq,Ord,Typeable,Data)
+data Qualified t a = Qualified [Identifier t] a
+                   deriving (Show,Eq,Ord,Typeable,Data)
 
 -- | Add single qualifier
-addQualifier :: Identifier t -> Qualified t -> Qualified t
+addQualifier :: Identifier t -> Qualified t a -> Qualified t a
 addQualifier q (Qualified qs x) = Qualified (q:qs) x
 
 -- | Add list of qualifiers.
-addQualList :: [Identifier t] -> Qualified t -> Qualified t
+addQualList :: [Identifier t] -> Qualified t a -> Qualified t a
 addQualList q (Qualified qs x) = Qualified (q ++ qs) x
 
 
@@ -146,31 +153,19 @@ mergeNamespaces :: Namespace -> Namespace -> PbMonadE Namespace
 mergeNamespaces namespace (Namespace ns2)
   = F.foldlM insertName namespace ns2
 
+-- | Find name in namespace
+findName :: Namespace -> (Identifier TagType) -> Maybe SomeName
+findName (Namespace ns) n = Map.lookup n ns
 
-
-----------------------------------------------------------------
--- Names
-----------------------------------------------------------------
-
--- -- | Set of namespaces. First parameter is global namespace and second
--- --   is current path into namespace
--- data Names = Names Namespace [(Identifier TagType)]
---            deriving (Show,Typeable,Data)
-
--- nameDown :: Identifier TagType -> Names -> Names
--- nameDown n (Names global path) = Names global (path ++ [n])
-
--- resolveName :: Names -> QIdentifier -> PbMonadE (Qualified TagType SomeName)
--- resolveName (Names global _ ) (FullQualId qs n) = resolveNameWorker global qs n
--- resolveName (Names global []) (QualId     qs n) = resolveNameWorker global qs n
--- resolveName (Names global path) name@(QualId qs n) =
---   case findQualName global (Qualified (path ++ qs) n) of
---     Just x  -> return x
---     Nothing -> resolveName (Names global (init path)) name
-
--- resolveNameWorker :: Namespace -> [(Identifier TagType)] -> (Identifier TagType) -> PbMonadE (Qualified TagType SomeName)
--- resolveNameWorker namespace qs n =
---   case findQualName namespace (Qualified qs n) of
---     Just x  -> return x
---     Nothing -> do oops $ "Cannot find name" ++ show (Qualified qs n)
---                   return (Qualified [] $ EnumName $ Identifier "DUMMY")
+-- | Find qualified name in the namespace
+findQualName :: Namespace
+             -> QualifiedId TagType
+             -> Maybe (Qualified TagType SomeName)
+findQualName names (Qualified [] n)
+  = Qualified [] <$> findName names n
+findQualName names (Qualified (q:qs) n) = do
+  nest <- findName names q
+  case nest of
+    MsgName _ ns -> addQualifier q <$> findQualName ns (Qualified qs n)
+    PkgName _ ns -> addQualifier q <$> findQualName ns (Qualified qs n)
+    _            -> Nothing

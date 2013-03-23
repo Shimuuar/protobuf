@@ -138,17 +138,16 @@ Ident :: { Identifier () }
 -- Identifier which could be fully qualified
 FullQualId :: { QIdentifier }
   : "." QualifiedId  { case $2 of 
-                         QualId q n -> FullQualId q n 
-                         _          -> error "Impossible happened: FullQualId"
+                         QualId q -> FullQualId q
+                         _        -> error "Impossible happened: FullQualId"
                      }
   | QualifiedId      { $1 }
 -- Identifier which couldn't be full qualified
 QualifiedId :: { QIdentifier }
-  : QIdent           { case castQIdent $1 of 
-                         Qualified xs x -> QualId xs x
+  : QIdent           { QualId $ castQIdent $1
                      }
 -- Worker for qulified identifiers
-QIdent :: { Qualified () }
+QIdent :: { QualifiedId () }
   : Ident            { Qualified [] $1 }
   | Ident "." QIdent { case $3 of
                          Qualified qs x -> Qualified ($1 : qs) x 
@@ -183,7 +182,7 @@ parseError = error . ("ERROR: " ++) . show
 castIdent :: Identifier t -> Identifier q
 castIdent = Identifier . identifier
 
-castQIdent :: Qualified t -> Qualified q
+castQIdent :: QualifiedId t -> QualifiedId q
 castQIdent (Qualified xs x) = Qualified (map castIdent xs) (castIdent x)
 
 }
