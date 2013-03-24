@@ -6,6 +6,7 @@ import qualified Data.Traversable as T
 import Data.Generics.Uniplate.Data
 
 import Data.Protobuf.Internal.AST
+import Data.Protobuf.Internal.Names
 import Data.Protobuf.Internal.Control
 import Data.Protobuf.Internal.Types
 import Data.Protobuf.Internal.Transform
@@ -24,7 +25,12 @@ data PbDatatype
   = PbMessage QName [PbField]
   | PbEnum    QName [(Integer,String)]
 
-data PbField = PbField Modifier QName String Integer
+data PbField = PbField Modifier PbType String Integer
+
+data PbType
+  = TyMessage QName
+  | TyEnum    QName
+  | TyPrim    PrimType
 
 -- | Load all protobuf files
 loadProtobuf :: [String]                   -- ^ Search path for includes
@@ -46,19 +52,33 @@ loadProtobuf includes srcs = runPbMonad (PbContext includes) $ do
   res <-  mapM resolveTypeNames
       =<< mapM (mergeImports dmap) files
   -- Extract data from AST
-  
-  undefined
+  return $ extractData =<< res
 
-{-
+
 extractData :: ProtobufFile -> [PbDatatype]
 extractData pb =
-  [ cnvMessage x | x <- universeBi pb ] ++
-  [ cnvEnum    x | x <- universeBi pb ]
+  [ cnvMessage x | x <- universeBi $ protobufFile pb ] ++
+  [ cnvEnum    x | x <- universeBi $ protobufFile pb ]
   where
+    -- Extract messages
     cnvMessage (Message nm fields path)
-      = PbMessage (QName (map identifier path) (identifier nm))
+      = PbMessage (makeQN path nm)
                   (cnvField =<< fields)
-    cnvField (MessageField (Field mod ty (Identifier fld) _ _)) = []
+    cnvField (MessageField (Field modif ty name (FieldTag tag) _))
+      = [PbField modif fType (identifier name) tag]
+      where
+        fType = case ty of
+                  BaseType p -> TyPrim p
+                  EnumType q -> TyEnum    $ qname q
+                  MsgType  q -> TyMessage $ qname q
+                  _          -> error "impossible 21"
     cnvField _ = []
-    cnvEnum = undefined
--}
+    -- Extract enums
+    cnvEnum (EnumDecl nm fields path)
+      = PbEnum (makeQN path nm)
+        [ (i,name) | EnumField (Identifier name) i <- fields]
+    -- names
+    makeQN path nm = QName (map identifier path) (identifier nm)
+    -- 
+    qname (FullQualId (Qualified path nm)) = makeQN path nm
+    qname _ = error "Impossible 22"
