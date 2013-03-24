@@ -1,6 +1,8 @@
+{-# LANGUAGE DeriveDataTypeable #-}
 -- |
 module Data.Protobuf where
 
+import Data.Data (Data,Typeable)
 import qualified Data.Foldable    as F
 import qualified Data.Traversable as T
 import Data.Generics.Uniplate.Data
@@ -11,6 +13,7 @@ import Data.Protobuf.Internal.Control
 import Data.Protobuf.Internal.Types
 import Data.Protobuf.Internal.Transform
 
+import Text.Groom
 
 
 
@@ -20,17 +23,20 @@ import Data.Protobuf.Internal.Transform
 
 -- | Qualified name
 data QName = QName [String] String
-
+           deriving (Show,Eq,Typeable,Data)
 data PbDatatype
   = PbMessage QName [PbField]
   | PbEnum    QName [(Integer,String)]
+  deriving (Show,Eq,Typeable,Data)
 
 data PbField = PbField Modifier PbType String Integer
+             deriving (Show,Eq,Typeable,Data)
 
 data PbType
   = TyMessage QName
   | TyEnum    QName
   | TyPrim    PrimType
+  deriving (Show,Eq,Typeable,Data)
 
 -- | Load all protobuf files
 loadProtobuf :: [String]                   -- ^ Search path for includes
