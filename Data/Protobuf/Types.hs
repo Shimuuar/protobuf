@@ -13,6 +13,7 @@ module Data.Protobuf.Types (
     -- * Double map
   , DMap
   , emptyDMap
+  , fromL2Map
   , lookupDMap
   , insertDMapM
   ) where
@@ -89,6 +90,9 @@ data DMap k1 k2 v = DMap (Map k1 k2) (Map k2 v)
 -- | Empty map
 emptyDMap :: DMap k1 k2 v
 emptyDMap = DMap Map.empty Map.empty
+
+fromL2Map :: (Ord k1, Ord k2) => Map k2 v -> DMap k1 k2 v
+fromL2Map m2 = DMap Map.empty m2
 
 -- | Lookup value in the map.
 lookupDMap :: (Ord k1, Ord k2) => k1 -> DMap k1 k2 v -> Maybe v
