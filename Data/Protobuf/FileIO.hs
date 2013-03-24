@@ -3,6 +3,7 @@
 module Data.Protobuf.FileIO (
     readPbFile
   , findImport
+  , normalizePath
   ) where
 
 import Control.Monad.IO.Class
@@ -41,5 +42,9 @@ findImport nm = search . includePaths =<< askContext
       let name = d ++ "/" ++ nm
       exist <- liftIO $ doesFileExist name
       if exist
-        then liftIO $ canonicalizePath name
+        then normalizePath name
         else search ds
+
+-- | Normalize path to file
+normalizePath :: FilePath -> PbMonad FilePath
+normalizePath = liftIO . canonicalizePath
