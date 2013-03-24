@@ -21,13 +21,16 @@ Library
   Build-tools:          alex, happy
   Build-Depends:
     base           >=3 && <5,
+    bytestring,
     containers,
     mtl            > 2,
     transformers,
+    cereal,
     uniplate,
     directory,
     array,
     groom,
+    fixed-vector-hetero,
     ansi-wl-pprint
   Exposed-modules:
     Data.Protobuf.AST
@@ -38,3 +41,4 @@ Library
     Data.Protobuf.FileIO
     Data.Protobuf.Transform
     Data.Protobuf.DataTree
+    Data.Protobuf
