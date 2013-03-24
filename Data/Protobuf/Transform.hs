@@ -1,4 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveTraversable #-}
 -- | Transofrmation of protobug AST
 module Data.Protobuf.Transform (
     -- * Loading
@@ -25,6 +28,8 @@ import Data.Data                 (Data,Typeable)
 import Data.Ord
 import Data.List
 import Data.Monoid
+import qualified Data.Foldable    as F
+import qualified Data.Traversable as T
 
 import Data.Generics.Uniplate.Data
 
@@ -48,7 +53,7 @@ data Bundle a = Bundle
   , importMap  :: DMap String FilePath a
     -- ^ Maps import strings to the pathes in the file system
   }
-  deriving (Typeable)
+  deriving (Typeable,Functor,F.Foldable,T.Traversable)
 
 
 -- | Read all protobuf files and build map of all imports. 

@@ -1,5 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveTraversable #-}
 -- | Data types for transformations
 module Data.Protobuf.Types (
     -- * Monads
@@ -85,7 +87,7 @@ askContext = lift ask
 --   either to preserve sharing or when first set of keys could be
 --   larger than second and wee want to avoid keeping duplicates.
 data DMap k1 k2 v = DMap (Map k1 k2) (Map k2 v)
-                    deriving (Typeable,Functor)
+                    deriving (Typeable,Functor,F.Foldable,T.Traversable)
 
 -- | Empty map
 emptyDMap :: DMap k1 k2 v
