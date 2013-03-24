@@ -108,7 +108,8 @@ newtype FieldTag = FieldTag Integer
 data Modifier = Required
               | Optional
               | Repeated
-              deriving (Show,Typeable,Data)
+              deriving (Show,Eq,Typeable,Data)
+
 -- | Type of the field
 data Type
   = SomeType QIdentifier        -- ^ Identifier of unknown type
@@ -134,7 +135,7 @@ data PrimType
   | PbBool     -- ^ Boolean
   | PbString   -- ^ UTF8 encoded string
   | PbBytes    -- ^ Byte sequence
-  deriving (Show,Typeable,Data)
+  deriving (Show,Eq,Typeable,Data)
 
 data Option = Option (QualifiedId TagOption) OptionVal
             deriving (Show,Typeable,Data)
