@@ -38,7 +38,6 @@ Library
     Data.Protobuf.Names
     Data.Protobuf.FileIO
     Data.Protobuf.Transform
-    Data.Protobuf.DataTree
     Data.Protobuf
     Data.Protobuf.API
   Other-modules:

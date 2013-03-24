@@ -36,7 +36,6 @@ import Data.Generics.Uniplate.Data
 import Data.Protobuf.AST
 import Data.Protobuf.Names
 import Data.Protobuf.Types
-import Data.Protobuf.DataTree
 import Data.Protobuf.FileIO
 
 
