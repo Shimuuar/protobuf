@@ -4,11 +4,11 @@
 --
 -- Message and enum names are represented as their name and path to
 -- the name in global namespace.
-module Data.Protobuf.AST where
+module Data.Protobuf.Internal.AST where
 
 import Data.List (intercalate)
 import Data.Data
-import Data.Protobuf.Names
+import Data.Protobuf.Internal.Names
 
 -- | Top level declarations
 data Protobuf =

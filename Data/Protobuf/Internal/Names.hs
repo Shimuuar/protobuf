@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 -- |
 -- Description of names for protocol buffers.
-module Data.Protobuf.Names (
+module Data.Protobuf.Internal.Names (
     -- * Identifiers
     -- ** Unqualified
     Identifier(..)
@@ -36,7 +36,7 @@ import           Data.Map           (Map)
 import qualified Data.Foldable    as F
 import qualified Data.Traversable as T
 
-import Data.Protobuf.Types
+import Data.Protobuf.Internal.Types
 
 
 ----------------------------------------------------------------

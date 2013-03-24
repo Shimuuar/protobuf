@@ -3,7 +3,7 @@
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
 -- | Transofrmation of protobug AST
-module Data.Protobuf.Transform (
+module Data.Protobuf.Internal.Transform (
     -- * Loading
     Bundle(..)
   , loadPbFiles
@@ -33,10 +33,10 @@ import qualified Data.Traversable as T
 
 import Data.Generics.Uniplate.Data
 
-import Data.Protobuf.AST
-import Data.Protobuf.Names
-import Data.Protobuf.Types
-import Data.Protobuf.FileIO
+import Data.Protobuf.Internal.AST
+import Data.Protobuf.Internal.Names
+import Data.Protobuf.Internal.Types
+import Data.Protobuf.Internal.IO
 
 
 

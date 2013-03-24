@@ -7,9 +7,9 @@ import qualified Data.Foldable    as F
 import qualified Data.Traversable as T
 import Data.Generics.Uniplate.Data
 
-import Data.Protobuf.AST
-import Data.Protobuf.Types
-import Data.Protobuf.Transform
+import Data.Protobuf.Internal.AST
+import Data.Protobuf.Internal.Types
+import Data.Protobuf.Internal.Transform
 
 
 

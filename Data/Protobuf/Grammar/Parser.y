@@ -4,8 +4,8 @@ module Data.Protobuf.Grammar.Parser (
   ) where
 
 import Data.Protobuf.Grammar.Lexer
-import Data.Protobuf.AST
-import Data.Protobuf.Names
+import Data.Protobuf.Internal.AST
+import Data.Protobuf.Internal.Names
 
 }
 

@@ -33,14 +33,13 @@ Library
     fixed-vector-hetero,
     ansi-wl-pprint
   Exposed-modules:
-    Data.Protobuf.AST
-    Data.Protobuf.Types
-    Data.Protobuf.Names
-    Data.Protobuf.FileIO
-    Data.Protobuf.Transform
     Data.Protobuf
     Data.Protobuf.API
   Other-modules:
     Data.Protobuf.Grammar.Parser
     Data.Protobuf.Grammar.Lexer
-    
+    Data.Protobuf.Internal.Names
+    Data.Protobuf.Internal.AST
+    Data.Protobuf.Internal.IO
+    Data.Protobuf.Internal.Types
+    Data.Protobuf.Internal.Transform

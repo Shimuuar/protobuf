@@ -3,7 +3,7 @@
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
 -- | Data types for transformations
-module Data.Protobuf.Types (
+module Data.Protobuf.Internal.Types (
     -- * Monads
     PbMonad
   , runPbMonad

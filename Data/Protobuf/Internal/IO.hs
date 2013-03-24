@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 -- | Reading of protobuf files
-module Data.Protobuf.FileIO (
+module Data.Protobuf.Internal.IO (
     readPbFile
   , findImport
   , normalizePath
@@ -11,8 +11,8 @@ import Control.Monad.Trans.Error
 
 import System.Directory
 
-import Data.Protobuf.Types
-import Data.Protobuf.AST
+import Data.Protobuf.Internal.Types
+import Data.Protobuf.Internal.AST
 import Data.Protobuf.Grammar.Parser
 import Data.Protobuf.Grammar.Lexer
 
