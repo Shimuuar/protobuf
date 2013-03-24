@@ -17,7 +17,9 @@ module Data.Protobuf.Types (
   , emptyDMap
   , fromL2Map
   , lookupDMap
+  , lookupDMap2
   , insertDMapM
+  , insertDMap2
   ) where
 
 
@@ -105,6 +107,10 @@ lookupDMap k1 (DMap m1 m2) =
                  Nothing -> error "Internal error in Data.Protobuf.Types.DMap"
                  r       -> r
 
+lookupDMap2 :: (Ord k2) => k2 -> DMap k1 k2 v -> Maybe v
+lookupDMap2 k2 (DMap _ m2) =
+  k2 `Map.lookup` m2
+
 -- | Insert value into double map using monadic action. 
 insertDMapM :: (Ord k1, Ord k2, Monad m)
             => (k1 -> m k2)     -- ^ Mapping from first key to second
@@ -123,3 +129,6 @@ insertDMapM fKey fVal k1 m@(DMap m1 m2)
                        , DMap (Map.insert k1 k2 m1)
                               (Map.insert k2 v  m2)
                        )
+
+insertDMap2 :: (Ord k2) => k2 -> v -> DMap k1 k2 v -> DMap k1 k2 v
+insertDMap2 k v (DMap m1 m2) = DMap m1 $ Map.insert k v m2

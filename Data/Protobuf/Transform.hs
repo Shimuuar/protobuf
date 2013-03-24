@@ -48,10 +48,11 @@ import Data.Protobuf.FileIO
 -- | This data type contain all protobuf files which should be
 --   processed.
 data Bundle a = Bundle
-  { processedFiles :: [a]
-    -- ^
+  { processedFiles :: [FilePath]
+    -- ^ Pathes to the files for which code should be generated
   , importMap  :: DMap String FilePath a
-    -- ^ Maps import strings to the pathes in the file system
+    -- ^ Maps import strings to the pathes in the file system and
+    --   latter to the loaded sources. 
   }
   deriving (Typeable,Functor,F.Foldable,T.Traversable)
 
@@ -59,13 +60,25 @@ data Bundle a = Bundle
 -- | Read all protobuf files and build map of all imports. 
 loadPbFiles :: [FilePath] -> PbMonad (Bundle [Protobuf])
 loadPbFiles fnames = do
-  srcs <- mapM readPbFile fnames
-  dmap <- flip execStateT emptyDMap
-        $ mapM_ loadImports $ concat srcs
-  return $ Bundle srcs dmap
+  -- Read and normalize pathes at the same time
+  (norm,dmap) <- flip runStateT emptyDMap
+               $ mapM loadByPath fnames
+  return $ Bundle norm dmap
+
+
+type FileReader = StateT (DMap String FilePath [Protobuf]) PbMonad
+
+-- Load file by path and 
+loadByPath :: FilePath -> FileReader FilePath
+loadByPath path = do
+  nm <- lift $ normalizePath path
+  pb <- lift $ readPbFile nm
+  modify $ insertDMap2 nm pb
+  mapM_ loadImports pb
+  return nm
 
 -- Load imported protobuf files recursively
-loadImports :: Protobuf -> StateT (DMap String FilePath [Protobuf]) PbMonad ()
+loadImports :: Protobuf -> FileReader ()
 loadImports (Import str) = do
   (r,dmap) <- lift . insertDMapM findImport readPbFile str =<< get
   put dmap
