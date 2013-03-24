@@ -1,13 +1,12 @@
 -- |
 module Data.Protobuf where
 
-import Data.Serialize       (Get)
-import Data.ByteString.Lazy (ByteString)
 import qualified Data.Foldable    as F
 import qualified Data.Traversable as T
 import Data.Generics.Uniplate.Data
 
 import Data.Protobuf.Internal.AST
+import Data.Protobuf.Internal.Control
 import Data.Protobuf.Internal.Types
 import Data.Protobuf.Internal.Transform
 

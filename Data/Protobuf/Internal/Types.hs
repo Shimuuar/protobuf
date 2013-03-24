@@ -1,19 +1,12 @@
 {-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveFunctor      #-}
+{-# LANGUAGE DeriveFoldable     #-}
 {-# LANGUAGE DeriveTraversable #-}
--- | Data types for transformations
+-- |
+-- Additional data types
 module Data.Protobuf.Internal.Types (
-    -- * Monads
-    PbMonad
-  , runPbMonad
-  , PbMonadE
-  , oops
-  , collectErrors
-  , askContext
-  , PbContext(..)
     -- * Double map
-  , DMap
+    DMap
   , emptyDMap
   , fromL2Map
   , lookupDMap
@@ -22,63 +15,12 @@ module Data.Protobuf.Internal.Types (
   , insertDMap2
   ) where
 
-
-import Control.Monad.Reader
-import Control.Monad.Writer
-import Control.Monad.Error
-
 import Data.Data                 (Typeable,Data)
-import Data.Functor
 import qualified Data.Map         as Map
 import           Data.Map           (Map)
 import qualified Data.Foldable    as F
 import qualified Data.Traversable as T
 
-
-
-----------------------------------------------------------------
--- Monads
-----------------------------------------------------------------
-
--- | Context for protobuf
-data PbContext = PbContext
-  { includePaths :: [String]
-    -- ^ List of include path
-  }
-
--- | Monad for working with protobuf source tree.
-type PbMonad =
-  ErrorT String
-   (ReaderT PbContext IO)
-
--- | Execute PbMonad
-runPbMonad :: PbContext -> PbMonad a -> IO (Either String a)
-runPbMonad cxt
-  = flip runReaderT cxt
-  . runErrorT
-
-
-
--- | Monad which allows to accumulate non-fatal errors
-type PbMonadE =
-  WriterT [String]
-    PbMonad
-
--- | Non-fatal error
-oops :: String -> PbMonadE()
-oops = tell . (:[])
-
--- | Collect all non-fatal errors. If there are any raise an error.
-collectErrors :: PbMonadE a -> PbMonad a
-collectErrors m = do
-  (x,errs) <- runWriterT m
-  case errs of
-    [] -> return x
-    _  -> throwError $ unlines errs
-
--- | Ask for context
-askContext :: PbMonad PbContext
-askContext = lift ask
 
 
 ----------------------------------------------------------------
@@ -89,7 +31,7 @@ askContext = lift ask
 --   either to preserve sharing or when first set of keys could be
 --   larger than second and wee want to avoid keeping duplicates.
 data DMap k1 k2 v = DMap (Map k1 k2) (Map k2 v)
-                    deriving (Typeable,Functor,F.Foldable,T.Traversable)
+                    deriving (Typeable,Data,Functor,F.Foldable,T.Traversable)
 
 -- | Empty map
 emptyDMap :: DMap k1 k2 v

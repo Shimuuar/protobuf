@@ -34,9 +34,9 @@ import Data.Function
 import qualified Data.Map         as Map
 import           Data.Map           (Map)
 import qualified Data.Foldable    as F
-import qualified Data.Traversable as T
 
-import Data.Protobuf.Internal.Types
+import Data.Protobuf.Internal.Control
+
 
 
 ----------------------------------------------------------------

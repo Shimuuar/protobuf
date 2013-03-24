@@ -22,18 +22,16 @@ import Control.Monad
 import Control.Monad.State
 import Control.Monad.Error
 
-import qualified Data.Map         as Map
-import           Data.Map           (Map,(!))
 import Data.Data                 (Data,Typeable)
 import Data.Ord
 import Data.List
-import Data.Monoid
 import qualified Data.Foldable    as F
 import qualified Data.Traversable as T
 
 import Data.Generics.Uniplate.Data
 
 import Data.Protobuf.Internal.AST
+import Data.Protobuf.Internal.Control
 import Data.Protobuf.Internal.Names
 import Data.Protobuf.Internal.Types
 import Data.Protobuf.Internal.IO

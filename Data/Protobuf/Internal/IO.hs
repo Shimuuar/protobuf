@@ -11,7 +11,7 @@ import Control.Monad.Trans.Error
 
 import System.Directory
 
-import Data.Protobuf.Internal.Types
+import Data.Protobuf.Internal.Control
 import Data.Protobuf.Internal.AST
 import Data.Protobuf.Grammar.Parser
 import Data.Protobuf.Grammar.Lexer
