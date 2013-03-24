@@ -34,11 +34,14 @@ Library
     ansi-wl-pprint
   Exposed-modules:
     Data.Protobuf.AST
-    Data.Protobuf.Grammar.Parser
-    Data.Protobuf.Grammar.Lexer
     Data.Protobuf.Types
     Data.Protobuf.Names
     Data.Protobuf.FileIO
     Data.Protobuf.Transform
     Data.Protobuf.DataTree
     Data.Protobuf
+    Data.Protobuf.API
+  Other-modules:
+    Data.Protobuf.Grammar.Parser
+    Data.Protobuf.Grammar.Lexer
+    
