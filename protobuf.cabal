@@ -35,6 +35,8 @@ Library
   Exposed-modules:
     Data.Protobuf
     Data.Protobuf.API
+    Data.Protobuf.Serialize.VarInt
+    Data.Protobuf.Serialize.Protobuf
   Other-modules:
     Data.Protobuf.Grammar.Parser
     Data.Protobuf.Grammar.Lexer

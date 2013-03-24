@@ -1,5 +1,5 @@
 -- | Define utils for serializtion of protobuf message
-module Data.Serialize.Protobuf (
+module Data.Protobuf.Serialize.Protobuf (
     -- * Data types
     WireTag(..)
   , putWithWireTag
@@ -9,11 +9,11 @@ module Data.Serialize.Protobuf (
   , putPacked
   , getPbString
   , putPbString
-  , getPbEnum
-  , putPbEnum
+  -- , getPbEnum
+  -- , putPbEnum
   , getPbBytestring
   , putPbBytestring
-  , getDelimMessage
+  -- , getDelimMessage
   , putOptional
   ) where
 
@@ -23,12 +23,11 @@ import Data.Bits
 import Data.ByteString          (ByteString)
 import qualified Data.ByteString as BS
 import Data.Serialize
-import Data.Serialize.VarInt
+import Data.Protobuf.Serialize.VarInt
 import qualified Data.Sequence as Seq
 import           Data.Sequence   (Seq,(|>))
 import qualified Data.Foldable as F
 
-import Data.Protobuf.Classes
 
 
 
@@ -90,15 +89,15 @@ getSeq s getter = do
     else do x <- getter
             getSeq (s |> x) getter
 
--- | Get protocol buffers enumeration
-getPbEnum :: PbEnum a => Get a
-getPbEnum = toPbEnum <$> getVarInt
-{-# INLINE getPbEnum #-}
+-- -- | Get protocol buffers enumeration
+-- getPbEnum :: PbEnum a => Get a
+-- getPbEnum = toPbEnum <$> getVarInt
+-- {-# INLINE getPbEnum #-}
 
--- | Encode protocol buffers enumeration
-putPbEnum :: PbEnum a => a -> Put
-putPbEnum = putVarInt . fromPbEnum
-{-# INLINE putPbEnum #-}
+-- -- | Encode protocol buffers enumeration
+-- putPbEnum :: PbEnum a => a -> Put
+-- putPbEnum = putVarInt . fromPbEnum
+-- {-# INLINE putPbEnum #-}
 
 -- | Get PB encoded string
 getPbString :: Get String
@@ -127,11 +126,11 @@ getPbBytestring = getByteString =<< getVarInt
 putPbBytestring :: ByteString -> Put
 putPbBytestring bs = putVarInt (BS.length bs) >> putByteString bs
 
--- | Decode delimited message
-getDelimMessage :: Message m => Get (m Unchecked)
-getDelimMessage = do
-  n <- getVarInt
-  isolate n getMessage
+-- -- | Decode delimited message
+-- getDelimMessage :: Message m => Get (m Unchecked)
+-- getDelimMessage = do
+--   n <- getVarInt
+--   isolate n getMessage
 
 putOptional :: (a -> Put) -> Maybe a -> Put
 putOptional putter (Just x) = putter x

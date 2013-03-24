@@ -1,5 +1,6 @@
--- | Variable width integer encoding which are used in google protobuf.
-module Data.Serialize.VarInt ( 
+-- |
+-- Variable width integer encoding which are used in google protobuf.
+module Data.Protobuf.Serialize.VarInt ( 
     -- * Unsigned ints
     getVarWord32
   , getVarWord64
