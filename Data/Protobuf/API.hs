@@ -29,9 +29,15 @@
 -- >
 -- >   repeated PhoneNumber phone = 4;
 -- > }
-module Data.Protobuf.API where
+module Data.Protobuf.API (
+    Message
+  , FieldTypes
+  , Protobuf(..)
+  , Field(..)
+  ) where
 
-import Data.Vector.HFixed (HVector,Elems)
+import Data.Serialize     (Get,Put)
+import Data.Vector.HFixed (HVector,Elems,Fun)
 import GHC.TypeLits
 
 
@@ -52,10 +58,17 @@ data family Message (msg :: Symbol) :: *
 -- | Haskell types of all fields in message.
 type family FieldTypes (msg :: Symbol) :: [*] 
 
--- | Protocol buffers message
-class (HVector (Message msg), Elems (Message msg) ~ FieldTypes msg) => Protobuf (msg :: Symbol) where
-  
+-- | Data type is protocol buffer object.  This type class provide
+--   serialization and deserialization. Access to fields is provided
+--   by 'Field' type class.
+class (HVector (Message msg), Elems (Message msg) ~ FieldTypes msg
+      ) => Protobuf (msg :: Symbol) where
+  -- | Parser for the message
+  deserialize :: Get (Message msg)
+  -- | Encoder for the message
+  serialize :: Message msg -> Put
   
 -- | Access to fields of the message.     
 class Field (msg :: Symbol) (fld :: Symbol) where
   type FieldTy msg fld :: *
+  getterF :: Fun (FieldTypes msg) (FieldTy msg fld)
