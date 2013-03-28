@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE Rank2Types #-}
 -- | Define utils for serializtion of protobuf message
 module Data.Protobuf.Serialize.Protobuf (
     -- * Data types
@@ -9,16 +11,17 @@ module Data.Protobuf.Serialize.Protobuf (
   , putPacked
   , getPbString
   , putPbString
-  -- , getPbEnum
-  -- , putPbEnum
   , getPbBytestring
   , putPbBytestring
   -- , getDelimMessage
   , putOptional
+    -- * High level combinators
+  , getMessage
   ) where
 
 import Control.Applicative
 import Control.Monad
+import Control.Monad.ST
 import Data.Bits
 import Data.ByteString          (ByteString)
 import qualified Data.ByteString as BS
@@ -89,16 +92,6 @@ getSeq s getter = do
     else do x <- getter
             getSeq (s |> x) getter
 
--- -- | Get protocol buffers enumeration
--- getPbEnum :: PbEnum a => Get a
--- getPbEnum = toPbEnum <$> getVarInt
--- {-# INLINE getPbEnum #-}
-
--- -- | Encode protocol buffers enumeration
--- putPbEnum :: PbEnum a => a -> Put
--- putPbEnum = putVarInt . fromPbEnum
--- {-# INLINE putPbEnum #-}
-
 -- | Get PB encoded string
 getPbString :: Get String
 getPbString = do
@@ -136,3 +129,22 @@ putOptional :: (a -> Put) -> Maybe a -> Put
 putOptional putter (Just x) = putter x
 putOptional _      Nothing  = return ()
 {-# INLINE putOptional #-}
+
+
+
+----------------------------------------------------------------
+-- Combinators
+----------------------------------------------------------------
+
+getMessage
+  :: (WireTag -> ST s a -> Get (ST s a))
+  -> (ST s a)
+  -> Get (ST s a)
+getMessage step new
+  = loop new
+  where
+    loop st = do
+      f <- isEmpty
+      if f then return st
+           else do wt <- get
+                   loop =<< step wt st
