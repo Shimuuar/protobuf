@@ -29,12 +29,14 @@ Library
     uniplate,
     directory,
     array,
+    template-haskell >= 2.8,
     groom,
     fixed-vector-hetero,
     ansi-wl-pprint
   Exposed-modules:
     Data.Protobuf
     Data.Protobuf.API
+    Data.Protobuf.TH
     Data.Protobuf.Serialize.VarInt
     Data.Protobuf.Serialize.Protobuf
   Other-modules:
