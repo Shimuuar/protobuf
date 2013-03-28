@@ -84,7 +84,7 @@ extractData pb =
       = PbEnum (makeQN path nm)
         [ (i,name) | EnumField (Identifier name) i <- fields]
     -- names
-    makeQN path nm = QName (map identifier path) (identifier nm)
+    makeQN path nm = QName (map identifier $ init path) (identifier nm)
     -- 
     qname (FullQualId (Qualified path nm)) = makeQN path nm
     qname _ = error "Impossible 22"
