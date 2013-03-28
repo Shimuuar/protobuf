@@ -15,13 +15,13 @@
 -- >   required string name  = 1;
 -- >   required int32  id    = 2;
 -- >   optional string email = 3;
--- > 
+-- >
 -- >   enum PhoneType {
 -- >     MOBILE = 0;
 -- >     HOME = 1;
 -- >     WORK = 2;
 -- >   }
--- > 
+-- >
 -- >   message PhoneNumber {
 -- >     required string    number = 1;
 -- >     optional PhoneType type   = 2 [default = HOME];
@@ -31,6 +31,7 @@
 -- > }
 module Data.Protobuf.API (
     Message
+  , Msg(..)
   , FieldTypes
   , Protobuf(..)
   , Field(..)
@@ -53,10 +54,12 @@ import GHC.TypeLits
 -- > Message "Person.PhoneNumber"
 --
 --   It maps both messages and enums.
-data family Message (msg :: Symbol) :: *
+type family Message (msg :: Symbol) :: *
+
+newtype Msg (msg :: Symbol) = Msg (Message msg)
 
 -- | Haskell types of all fields in message.
-type family FieldTypes (msg :: Symbol) :: [*] 
+type family FieldTypes (msg :: Symbol) :: [*]
 
 -- | Data type is protocol buffer object.  This type class provide
 --   serialization and deserialization. Access to fields is provided
@@ -64,11 +67,11 @@ type family FieldTypes (msg :: Symbol) :: [*]
 class (HVector (Message msg), Elems (Message msg) ~ FieldTypes msg
       ) => Protobuf (msg :: Symbol) where
   -- | Parser for the message
-  deserialize :: Get (Message msg)
+  deserialize :: Get (Msg msg)
   -- | Encoder for the message
-  serialize :: Message msg -> Put
-  
--- | Access to fields of the message.     
+  serialize :: Msg msg -> Put
+
+-- | Access to fields of the message.
 class Field (msg :: Symbol) (fld :: Symbol) where
   type FieldTy msg fld :: *
   getterF :: Fun (FieldTypes msg) (FieldTy msg fld)
