@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE Rank2Types #-}
 -- | Define utils for serializtion of protobuf message
 module Data.Protobuf.Serialize.Protobuf (
@@ -15,8 +16,11 @@ module Data.Protobuf.Serialize.Protobuf (
   , putPbBytestring
   -- , getDelimMessage
   , putOptional
-    -- * High level combinators
+    -- * Combinators for the mutable accumulator
   , getMessage
+  , writeRequired
+  , writeOptional
+  , writeRepeated
   ) where
 
 import Control.Applicative
@@ -30,9 +34,14 @@ import Data.Protobuf.Serialize.VarInt
 import qualified Data.Sequence as Seq
 import           Data.Sequence   (Seq,(|>))
 import qualified Data.Foldable as F
+import qualified Data.Vector.HFixed as H
+import GHC.TypeLits
 
 
 
+----------------------------------------------------------------
+-- Primitive parsers
+----------------------------------------------------------------
 
 -- | Wire tag. It's pair of message tags and type tag
 data WireTag = WireTag {-# UNPACK #-} !Int {-# UNPACK #-} !Int
@@ -136,9 +145,11 @@ putOptional _      Nothing  = return ()
 -- Combinators
 ----------------------------------------------------------------
 
+
+-- | Combinator for stateful parsing of message 
 getMessage
-  :: (WireTag -> ST s a -> Get (ST s a))
-  -> (ST s a)
+  :: (WireTag -> ST s a -> Get (ST s a)) -- ^ Update function
+  -> (ST s a)                            -- ^ Initial state
   -> Get (ST s a)
 getMessage step new
   = loop new
@@ -148,3 +159,38 @@ getMessage step new
       if f then return st
            else do wt <- get
                    loop =<< step wt st
+
+
+
+-- | Write required field into accumulator
+writeRequired :: (H.IdxVal n xs ~ a)
+              => Sing n
+              -> Get a
+              -> ST s (H.MutableHVec s xs)
+              -> Get (ST s (H.MutableHVec s xs))
+writeRequired n getter st = do
+  a <- getter
+  let go arr = H.writeMutableHVec arr n a >> return arr
+  return $ st >>= go
+
+-- | Write optional field into accumulator
+writeOptional :: (H.IdxVal n xs ~ Maybe a)
+              => Sing n
+              -> Get a
+              -> ST s (H.MutableHVec s xs)
+              -> Get (ST s (H.MutableHVec s xs))
+writeOptional n getter st = do
+  a <- getter
+  let go arr = H.writeMutableHVec arr n (Just a) >> return arr
+  return $ st >>= go
+
+-- | Write repeated field into accumulator
+writeRepeated :: (H.IdxVal n xs ~ Seq a)
+              => Sing n
+              -> Get a
+              -> ST s (H.MutableHVec s xs)
+              -> Get (ST s (H.MutableHVec s xs))
+writeRepeated n getter st = do
+  a <- getter
+  let go arr = H.modifyMutableHVec arr n (\sq -> sq |> a) >> return arr
+  return $ st >>= go
