@@ -58,10 +58,19 @@ import GHC.TypeLits
 --   It maps both messages and enums.
 type family Message (msg :: Symbol) :: *
 
+
+-- | Newtype wrapper for the representation of message
 newtype Msg (msg :: Symbol) = Msg (Message msg)
+
 
 -- | Haskell types of all fields in message.
 type family FieldTypes (msg :: Symbol) :: [*]
+
+
+-- | Access to fields of the message.
+class Field (msg :: Symbol) (fld :: Symbol) where
+  type FieldTy msg fld :: *
+  getterF :: Fun (FieldTypes msg) (FieldTy msg fld)
 
 
 
@@ -74,8 +83,3 @@ class (HVector (Message msg), Elems (Message msg) ~ FieldTypes msg
   deserializeST :: Get (ST s (MutableHVec s (FieldTypes msg)))
   -- | Encoder for the message
   serialize :: Msg msg -> Put
-
--- | Access to fields of the message.
-class Field (msg :: Symbol) (fld :: Symbol) where
-  type FieldTy msg fld :: *
-  getterF :: Fun (FieldTypes msg) (FieldTy msg fld)
