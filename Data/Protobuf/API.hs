@@ -37,8 +37,10 @@ module Data.Protobuf.API (
   , Field(..)
   ) where
 
+import Control.Monad.ST   (ST)
 import Data.Serialize     (Get,Put)
-import Data.Vector.HFixed (HVector,Elems,Fun)
+import Data.ByteString    (ByteString)
+import Data.Vector.HFixed (HVector,Elems,Fun,MutableHVec)
 import GHC.TypeLits
 
 
@@ -61,13 +63,15 @@ newtype Msg (msg :: Symbol) = Msg (Message msg)
 -- | Haskell types of all fields in message.
 type family FieldTypes (msg :: Symbol) :: [*]
 
+
+
 -- | Data type is protocol buffer object.  This type class provide
 --   serialization and deserialization. Access to fields is provided
 --   by 'Field' type class.
 class (HVector (Message msg), Elems (Message msg) ~ FieldTypes msg
       ) => Protobuf (msg :: Symbol) where
   -- | Parser for the message
-  deserialize :: Get (Msg msg)
+  deserializeST :: Get (ST s (MutableHVec s (FieldTypes msg)))
   -- | Encoder for the message
   serialize :: Msg msg -> Put
 
