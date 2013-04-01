@@ -19,7 +19,7 @@ import Data.Vector.HFixed (HVec,Fun(..))
 
 import Data.Protobuf
 import Data.Protobuf.API
-import Data.Protobuf.Internal.AST hiding (Type,Message,Field)
+import Data.Protobuf.Internal.AST hiding (Type,Message,Field,Protobuf)
 
 
 
@@ -56,7 +56,12 @@ genInstance (PbMessage name fields) = do
                , ValD (VarP 'getterF) (NormalB $ AppE (ConE 'Fun) lam) []
                ]
            ]
-    -- Instance for 'Protobuf' (serialization/deserialization)  
+    -- Instance for 'Protobuf' (serialization/deserialization)
+    tell [ InstanceD [] (ConT ''Protobuf `AppT` (qstrLit name))
+             [ ValD (VarP 'serialize)     (NormalB $ VarE 'undefined) []
+             , ValD (VarP 'deserializeST) (NormalB $ VarE 'undefined) []
+             ]
+         ]
 genInstance (PbEnum name _) = do 
   return
     [ TySynInstD ''Message [qstrLit name] $ ConT ''Int ]
