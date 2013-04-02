@@ -70,10 +70,73 @@ genInstance (PbMessage name fields) = do
              , ValD (VarP 'getMessageST) (NormalB $ deser) []
              ]
          ]
-genInstance (PbEnum name _) = do 
+genInstance (PbEnum name _) = do
   return
     [ TySynInstD ''Message [qstrLit name] $ ConT ''Int ]
 
+-- Getter function
+getterTH :: Int -> Int -> Q Exp
+getterTH nTot n = do
+  nm <- newName "x"
+  lamE
+    [ if i == n then varP nm else wildP | i <- take nTot [0..]]
+    (varE nm)
+
+-- Declaration of deserialization function. General layout
+--
+-- > getRecords updFun emptyRec
+deserializeDecl name fields = do
+  updFun <- newName "updFun"
+  emp    <- newName "emp"
+  --
+  letE [ valD (varP emp)
+           (normalB $ (conE 'MutableMsg `appE` varE 'newMutableHVec `appE` conE '())
+                    `sigE`
+                      (conT ''MutableMsg `appT` return (qstrLit name))
+           )
+         []
+       , updateDecl updFun (zip [0..] fields)
+       ] $
+      (varE 'getRecords `appE` varE updFun `appE` varE emp)
+
+-- Function for updating single record
+updateDecl funNm fields = do
+  -- Primary clauses
+  cls <- mapM updateClause fields
+  -- Fallback clause
+  fallback <- do
+    wt  <- newName "wt"
+    msg <- newName "msg"
+    [varP wt, varP msg]
+      $== doE [ noBindS $ varE 'skipUnknownField `appE` varE wt
+              , noBindS $ varE 'return           `appE` varE msg
+              ]
+  --
+  return $ FunD funNm (concat cls ++ [fallback])
+
+-- Update clause for single field
+updateClause (i,(PbField modif ty _ tag)) = do
+  msg <- newName "msg"
+  --
+  let updater = case modif of
+                  Required -> varE 'writeRequired
+                  Optional -> varE 'writeOptional
+                  Repeated -> varE 'writeRepeated
+      n       = varE 'sing `sigE` (conT ''Sing `appT` litT (numTyLit i))
+      updExpr = updater `appE` n `appE` varE (fieldParser ty) `appE` varE msg
+  --
+  sequence
+    [ [ conP 'WireTag [intP tag, intP (getTyTag ty)]
+      , varP msg
+      ] $== updExpr
+    , [ conP 'WireTag [intP tag, wildP]
+      , wildP
+      ] $== (varE 'fail `appE` litE (StringL "Bad wire tag"))
+    ]
+
+----------------------------------------------------------------
+-- TH helpers
+----------------------------------------------------------------
 
 -- Produce pair (name, type) for field of the message.
 findType :: PbField -> (String, Type)
@@ -109,89 +172,31 @@ findType (PbField m ty name _)
         TyMessage nm      -> ConT ''Msg `AppT` qstrLit nm
         TyEnum    nm      -> ConT ''Msg `AppT` qstrLit nm
 
--- Declaration of deserialization function. General layout
---
--- > getRecords updFun emptyRec
-deserializeDecl name fields = do
-  updFun <- newName "updFun"
-  emp    <- newName "emp"
-  --
-  letE [ valD (varP emp)
-           (normalB $ (conE 'MutableMsg `appE` varE 'newMutableHVec `appE` conE '())
-                    `sigE`
-                      (conT ''MutableMsg `appT` return (qstrLit name))
-           )
-         []
-       , updateDecl updFun (zip [0..] fields)
-       ] $
-      (varE 'getRecords `appE` varE updFun `appE` varE emp)
 
--- Function for updating single record
-updateDecl funNm fields = do
-  -- Primary clauses
-  cls <- mapM updateClause fields
-  -- Fallback clause
-  fallback <- do
-    wt  <- newName "wt"
-    msg <- newName "msg"
-    clause [varP wt, varP msg]
-      (normalB $ doE [ noBindS $ varE 'skipUnknownField `appE` varE wt
-                     , noBindS $ varE 'return           `appE` varE msg
-                     ]
-      )
-      []
-  --
-  return $ FunD funNm (concat cls ++ [fallback])
+-- Get type tag which corresponds to the given type
+getTyTag :: PbType -> Integer
+getTyTag (TyPrim PbDouble)   = fromIntegral tag_FIXED64
+getTyTag (TyPrim PbFloat)    = fromIntegral tag_FIXED32
+getTyTag (TyPrim PbInt32)    = fromIntegral tag_VARINT
+getTyTag (TyPrim PbInt64)    = fromIntegral tag_VARINT
+getTyTag (TyPrim PbUInt32)   = fromIntegral tag_VARINT
+getTyTag (TyPrim PbUInt64)   = fromIntegral tag_VARINT
+getTyTag (TyPrim PbSInt32)   = fromIntegral tag_VARINT
+getTyTag (TyPrim PbSInt64)   = fromIntegral tag_VARINT
+getTyTag (TyPrim PbFixed32)  = fromIntegral tag_FIXED32
+getTyTag (TyPrim PbFixed64)  = fromIntegral tag_FIXED64
+getTyTag (TyPrim PbSFixed32) = fromIntegral tag_FIXED32
+getTyTag (TyPrim PbSFixed64) = fromIntegral tag_FIXED64
+getTyTag (TyPrim PbBool)     = fromIntegral tag_VARINT
+getTyTag (TyPrim PbString)   = fromIntegral tag_LENDELIM
+getTyTag (TyPrim PbBytes)    = fromIntegral tag_LENDELIM
+-- Custom types
+getTyTag (TyMessage nm)      = fromIntegral tag_LENDELIM
+getTyTag (TyEnum    nm)      = fromIntegral tag_VARINT
 
--- Update clause for single field
-updateClause (i,(PbField modif ty _ tag)) = do
-  msg <- newName "msg"
-  --
-  let updater = case modif of
-                  Required -> varE 'writeRequired
-                  Optional -> varE 'writeOptional
-                  Repeated -> varE 'writeRepeated
-      n       = varE 'sing `sigE` (conT ''Sing `appT` litT (numTyLit i))
-      updExpr = updater `appE` n `appE` varE (fieldParser ty) `appE` varE msg
-  --
-  sequence
-    [ clause
-        [ conP 'WireTag [litP (IntegerL tag), litP (IntegerL $ fromIntegral $ getTyTag ty)]
-        , varP msg
-        ]
-        (normalB $ updExpr)
-         []
-    , clause
-        [ conP 'WireTag [litP (IntegerL tag), wildP]
-        , wildP
-        ]
-        (normalB $ varE 'fail `appE` litE (StringL "Bad wire tag"))
-        []
-    ]
 
-----------------------------------------------------------------
--- TH helpers
-----------------------------------------------------------------
-
-getTyTag (TyPrim PbDouble)   = tag_FIXED64
-getTyTag (TyPrim PbFloat)    = tag_FIXED32
-getTyTag (TyPrim PbInt32)    = tag_VARINT
-getTyTag (TyPrim PbInt64)    = tag_VARINT
-getTyTag (TyPrim PbUInt32)   = tag_VARINT
-getTyTag (TyPrim PbUInt64)   = tag_VARINT
-getTyTag (TyPrim PbSInt32)   = tag_VARINT
-getTyTag (TyPrim PbSInt64)   = tag_VARINT
-getTyTag (TyPrim PbFixed32)  = tag_FIXED32
-getTyTag (TyPrim PbFixed64)  = tag_FIXED64
-getTyTag (TyPrim PbSFixed32) = tag_FIXED32
-getTyTag (TyPrim PbSFixed64) = tag_FIXED64
-getTyTag (TyPrim PbBool)     = tag_VARINT
-getTyTag (TyPrim PbString)   = tag_LENDELIM
-getTyTag (TyPrim PbBytes)    = tag_LENDELIM
-        -- Custom types
-getTyTag (TyMessage nm)      = tag_LENDELIM
-getTyTag (TyEnum    nm)      = tag_VARINT
-
+-- Name parser function for the given type
+fieldParser :: PbType -> Name
 fieldParser (TyPrim PbDouble)   = 'getFloat64le
 fieldParser (TyPrim PbFloat)    = 'getFloat32le
 fieldParser (TyPrim PbInt32)    = 'getVarInt32
@@ -207,11 +212,16 @@ fieldParser (TyPrim PbSFixed64) = undefined
 fieldParser (TyPrim PbBool)     = 'getVarBool
 fieldParser (TyPrim PbString)   = 'getPbString
 fieldParser (TyPrim PbBytes)    = 'getPbBytestring
-        -- Custom types
+-- Custom types
 fieldParser (TyMessage nm)      = undefined
 fieldParser (TyEnum    nm)      = undefined
 
-    
+
+
+----------------------------------------------------------------
+-- TH helpers
+----------------------------------------------------------------
+
 strLit :: String -> Type
 strLit = LitT . StrTyLit
 
@@ -224,10 +234,9 @@ unqualify (QName ns n) = intercalate "." (ns ++ [n])
 makeTyList :: [Type] -> Type
 makeTyList = foldr (\a ls -> PromotedConsT `AppT` a `AppT` ls) PromotedNilT
 
+intP :: Integer -> PatQ
+intP = litP . IntegerL
 
-getterTH :: Int -> Int -> Q Exp
-getterTH nTot n = do
-  nm <- newName "x"
-  lamE
-    [ if i == n then varP nm else wildP | i <- take nTot [0..]]
-    (varE nm)
+-- Assignment for clause
+($==) :: [PatQ] -> ExpQ -> ClauseQ
+pats $== expr = clause pats (normalB expr) []
