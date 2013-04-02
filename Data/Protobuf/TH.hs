@@ -89,12 +89,10 @@ deserializeDecl name fields = do
   updFun <- newName "updFun"
   emp    <- newName "emp"
   --
-  letE [ valD (varP emp)
-           (normalB $ (conE 'MutableMsg `appE` varE 'newMutableHVec `appE` conE '())
-                    `sigE`
+  letE [ varP emp $= ((conE 'MutableMsg `appE` varE 'newMutableHVec `appE` conE '())
+                      `sigE`
                       (conT ''MutableMsg `appT` return (qstrLit name))
-           )
-         []
+                       )
        , updateDecl updFun (zip [0..] fields)
        ] $
       (varE 'getRecords `appE` varE updFun `appE` varE emp)
@@ -237,6 +235,9 @@ makeTyList = foldr (\a ls -> PromotedConsT `AppT` a `AppT` ls) PromotedNilT
 intP :: Integer -> PatQ
 intP = litP . IntegerL
 
--- Assignment for clause
+-- Function clause declaration for clause
 ($==) :: [PatQ] -> ExpQ -> ClauseQ
 pats $== expr = clause pats (normalB expr) []
+
+-- Value declaration
+pat $= expr = valD pat (normalB expr) []
