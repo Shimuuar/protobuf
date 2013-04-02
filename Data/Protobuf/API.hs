@@ -4,6 +4,9 @@
 {-# LANGUAGE DeriveDataTypeable    #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE UndecidableInstances #-}
 -- |
 -- API for working with protobuf messages. They are encoded at the
 -- type level
@@ -33,14 +36,20 @@ module Data.Protobuf.API (
     Message
   , Msg(..)
   , FieldTypes
-  , Protobuf(..)
   , Field(..)
+    -- * Serialization
+  , Protobuf(..)
+  , getMessage
+  , MutableMsg(..)
+  , freezeMutableMsg
   ) where
 
-import Control.Monad.ST   (ST)
+import Control.Monad.ST   (ST,runST)
+import Data.STRef
 import Data.Serialize     (Get,Put)
 import Data.ByteString    (ByteString)
 import Data.Vector.HFixed (HVector,Elems,Fun,MutableHVec)
+import qualified Data.Vector.HFixed as H
 import GHC.TypeLits
 
 
@@ -62,6 +71,7 @@ type family Message (msg :: Symbol) :: *
 -- | Newtype wrapper for the representation of message
 newtype Msg (msg :: Symbol) = Msg (Message msg)
 
+deriving instance Show (Message msg) => Show (Msg msg)
 
 -- | Haskell types of all fields in message.
 type family FieldTypes (msg :: Symbol) :: [*]
@@ -73,13 +83,37 @@ class Field (msg :: Symbol) (fld :: Symbol) where
   getterF :: Fun (FieldTypes msg) (FieldTy msg fld)
 
 
+----------------------------------------------------------------
+-- Parsing
+----------------------------------------------------------------
+
+
+data MutableMsg (msg :: Symbol) =
+  MutableMsg 
+  (forall s. ST s (MutableHVec s (FieldTypes msg)))
+  ()
+  -- (ST s (STRef s Int))
+
+-- freezeMutableMsg :: Protobuf msg => MutableMsg msg -> H.HVec (FieldTypes msg)
+-- freezeMutableMsg (MutableMsg marr _) = runST $ H.unsafeFreezeHVec =<< marr
+
+
+freezeMutableMsg :: Protobuf msg => MutableMsg msg -> Get (Msg msg)
+freezeMutableMsg (MutableMsg marr _)
+  = return $ Msg $ H.convert $ runST $ H.unsafeFreezeHVec =<< marr
 
 -- | Data type is protocol buffer object.  This type class provide
 --   serialization and deserialization. Access to fields is provided
 --   by 'Field' type class.
-class (HVector (Message msg), Elems (Message msg) ~ FieldTypes msg
+class ( HVector (Message msg)
+      , Elems (Message msg) ~ FieldTypes msg
+      , HVector (H.HVec (FieldTypes msg))
       ) => Protobuf (msg :: Symbol) where
   -- | Parser for the message
-  deserializeST :: Get (ST s (MutableHVec s (FieldTypes msg)))
+  getMessageST :: Get (MutableMsg msg)
   -- | Encoder for the message
   serialize :: Msg msg -> Put
+
+getMessage :: Protobuf msg => Get (Msg msg)
+getMessage = do
+  freezeMutableMsg =<< getMessageST

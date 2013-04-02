@@ -58,8 +58,8 @@ genInstance (PbMessage name fields) = do
            ]
     -- Instance for 'Protobuf' (serialization/deserialization)
     tell [ InstanceD [] (ConT ''Protobuf `AppT` (qstrLit name))
-             [ ValD (VarP 'serialize)     (NormalB $ VarE 'undefined) []
-             , ValD (VarP 'deserializeST) (NormalB $ VarE 'undefined) []
+             [ ValD (VarP 'serialize)    (NormalB $ VarE 'undefined) []
+             , ValD (VarP 'getMessageST) (NormalB $ VarE 'undefined) []
              ]
          ]
 genInstance (PbEnum name _) = do 
