@@ -29,6 +29,11 @@ import Data.Serialize.IEEE754
 
 
 
+----------------------------------------------------------------
+-- API
+----------------------------------------------------------------
+
+-- | Generate instances for the code
 generateProtobuf :: [FilePath]  -- ^ Include path
                  -> [FilePath]  -- ^ Files to parse
                  -> Q [Dec]
