@@ -6,6 +6,11 @@ module Data.Protobuf.Serialize.Protobuf (
     -- * Data types
     WireTag(..)
   , putWithWireTag
+    -- ** Tag types
+  , tag_VARINT
+  , tag_FIXED64
+  , tag_LENDELIM
+  , tag_FIXED32
     -- * Getters
   , skipUnknownField
   , getPacked
@@ -46,6 +51,13 @@ import Data.Protobuf.API
 ----------------------------------------------------------------
 -- Primitive parsers
 ----------------------------------------------------------------
+
+tag_VARINT, tag_FIXED32, tag_FIXED64, tag_LENDELIM :: Int
+tag_VARINT   = 0
+tag_FIXED64  = 1
+tag_LENDELIM = 2
+tag_FIXED32  = 5
+
 
 -- | Wire tag. It's pair of message tags and type tag
 data WireTag = WireTag {-# UNPACK #-} !Int {-# UNPACK #-} !Int
