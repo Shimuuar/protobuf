@@ -15,6 +15,7 @@ import Data.List       (intercalate)
 import Data.ByteString (ByteString)
 import Data.Sequence   (Seq)
 import Language.Haskell.TH
+import Language.Haskell.TH.Syntax (qAddDependentFile)
 import GHC.TypeLits
 
 import Data.Vector.HFixed (HVec,Fun(..),newMutableHVec)
@@ -34,6 +35,7 @@ generateProtobuf :: [FilePath]  -- ^ Include path
 generateProtobuf incs fnames = do
   -- Read protobuf files
   messages <- runIO $ loadProtobuf incs fnames
+  mapM_ qAddDependentFile fnames
   -- Declare instance for every message
   case messages of
     Left  err -> fail err
