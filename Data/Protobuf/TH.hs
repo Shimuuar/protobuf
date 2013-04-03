@@ -118,13 +118,17 @@ updateDecl funNm fields = do
   return $ FunD funNm (concat cls ++ [fallback])
 
 -- Update clause for single field
-updateClause (i,(PbField modif ty _ tag _)) = do
+updateClause (i,(PbField modif ty _ tag opts)) = do
   msg <- newName "msg"
-  --
-  let updater = case modif of
-                  Required -> varE 'writeRequired
-                  Optional -> varE 'writeOptional
-                  Repeated -> varE 'writeRepeated
+  -- Generate 
+  let updater =
+        case modif of
+          Required -> varE 'writeRequired
+          Optional -> varE 'writeOptional
+          Repeated -> case [ () | OptPacked <- opts ] of
+            []  -> varE 'writeRepeated
+            [_] -> varE 'writeRepeatedPacked
+            _   -> error "Internal error"
       n       = varE 'sing `sigE` (conT ''Sing `appT` litT (numTyLit i))
       updExpr = updater `appE` n `appE` varE (fieldParser ty) `appE` varE msg
   --

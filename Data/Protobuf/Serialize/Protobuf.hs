@@ -26,6 +26,7 @@ module Data.Protobuf.Serialize.Protobuf (
   , writeRequired
   , writeOptional
   , writeRepeated
+  , writeRepeatedPacked
   ) where
 
 import Control.Applicative
@@ -37,7 +38,7 @@ import qualified Data.ByteString as BS
 import Data.Serialize
 import Data.Protobuf.Serialize.VarInt
 import qualified Data.Sequence as Seq
-import           Data.Sequence   (Seq,(|>))
+import           Data.Sequence   (Seq,(|>),(><))
 import qualified Data.Foldable as F
 import qualified Data.Vector.HFixed as H
 import GHC.TypeLits
@@ -217,3 +218,16 @@ writeRepeated n getter st = do
                    ref
   return $ go st
 
+
+-- | Write repeated field into accumulator
+writeRepeatedPacked :: (H.IdxVal n (FieldTypes msg) ~ Seq a)
+                    => Sing n
+                    -> Get a
+                    -> MutableMsg msg
+                    -> Get (MutableMsg msg)
+writeRepeatedPacked n getter st = do
+  a <- getPacked getter
+  let go (MutableMsg marr ref) =
+        MutableMsg (marr >>= (\arr -> H.modifyMutableHVec arr n (\sq -> sq >< a) >> return arr))
+                   ref
+  return $ go st
