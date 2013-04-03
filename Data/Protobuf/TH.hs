@@ -245,4 +245,5 @@ intP = litP . IntegerL
 pats $== expr = clause pats (normalB expr) []
 
 -- Value declaration
+($=) :: PatQ -> ExpQ -> DecQ
 pat $= expr = valD pat (normalB expr) []
