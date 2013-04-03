@@ -194,8 +194,8 @@ getTyTag (TyPrim PbBool)     = fromIntegral tag_VARINT
 getTyTag (TyPrim PbString)   = fromIntegral tag_LENDELIM
 getTyTag (TyPrim PbBytes)    = fromIntegral tag_LENDELIM
 -- Custom types
-getTyTag (TyMessage nm)      = fromIntegral tag_LENDELIM
-getTyTag (TyEnum    nm)      = fromIntegral tag_VARINT
+getTyTag (TyMessage _)       = fromIntegral tag_LENDELIM
+getTyTag (TyEnum    _)       = fromIntegral tag_VARINT
 
 
 -- Name parser function for the given type
@@ -216,8 +216,8 @@ fieldParser (TyPrim PbBool)     = 'getVarBool
 fieldParser (TyPrim PbString)   = 'getPbString
 fieldParser (TyPrim PbBytes)    = 'getPbBytestring
 -- Custom types
-fieldParser (TyMessage nm)      = undefined
-fieldParser (TyEnum    nm)      = undefined
+fieldParser (TyMessage _)       = undefined
+fieldParser (TyEnum    _)       = undefined
 
 
 
