@@ -14,11 +14,12 @@ import Data.Word
 import Data.List       (intercalate)
 import Data.ByteString (ByteString)
 import Data.Sequence   (Seq)
+import qualified Data.Sequence as Seq
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax (qAddDependentFile)
 import GHC.TypeLits
 
-import Data.Vector.HFixed (HVec,Fun(..),newMutableHVec)
+import Data.Vector.HFixed (HVec,Fun(..),newMutableHVec,writeMutableHVec)
 
 import Data.Protobuf
 import Data.Protobuf.API
@@ -90,12 +91,13 @@ getterTH nTot n = do
 -- Declaration of deserialization function. General layout
 --
 -- > getRecords updFun emptyRec
+deserializeDecl :: QName -> [PbField] -> Q Exp
 deserializeDecl name fields = do
   updFun <- newName "updFun"
   emp    <- newName "emp"
   --
   letE [ varP emp $= (app [ conE 'MutableMsg
-                          , varE 'newMutableHVec
+                          , emptyVec fields
                           , conE '()]
                       `sigE`
                       (conT ''MutableMsg `appT` return (qstrLit name))
@@ -104,6 +106,30 @@ deserializeDecl name fields = do
        ] $
       app [varE 'getRecords, varE updFun, varE emp]
 
+-- Uninitialized vector
+emptyVec :: [PbField] -> Q Exp
+emptyVec fields = do
+  hvec <- newName "hvec"
+  doE $ concat
+    [ [ bindS (varP hvec) [| newMutableHVec |] ]
+    , map noBindS $ flip concatMap (zip [0..] fields) $ \(i, PbField mod name ty _ opts) ->
+       let n = [| sing :: Sing $(litT (numTyLit i)) |]
+       in case mod of
+          Required -> []
+          Repeated -> [ [| writeMutableHVec $(varE hvec) $n $([| Seq.empty |]) |] ]
+          Optional -> case [ o | OptDefault o <- opts ] of
+                       []              -> [ [| writeMutableHVec $(varE hvec) $n $([| Nothing |]) |] ]
+                       [OptInt    k]   -> [ [| writeMutableHVec $(varE hvec) $n $([| Just $(litE (integerL  k)) |]) |] ]
+                       [OptReal   k]   -> [ [| writeMutableHVec $(varE hvec) $n $([| Just $(litE (rationalL k)) |]) |] ]
+                       [OptString k]   -> [ [| writeMutableHVec $(varE hvec) $n $([| Just $(litE (stringL k))   |]) |] ]
+                       [OptBool True]  -> [ [| writeMutableHVec $(varE hvec) $n $([| Just True                  |]) |] ]
+                       [OptBool False] -> [ [| writeMutableHVec $(varE hvec) $n $([| Just False                 |]) |] ]
+                       _ -> error "Ay-ay-ay"
+        -- where
+    , [noBindS [| return $(varE hvec) |]]
+    ]
+
+  
 -- Function for updating single record
 updateDecl funNm fields = do
   -- Primary clauses
