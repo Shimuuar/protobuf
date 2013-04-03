@@ -176,4 +176,4 @@ data OptionVal
   | OptBool   Bool
   | OptInt    Integer
   | OptReal   Rational
-  deriving (Show,Typeable,Data)
+  deriving (Show,Eq,Typeable,Data)

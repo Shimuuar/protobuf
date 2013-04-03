@@ -6,6 +6,8 @@ module Data.Protobuf (
   , PbDatatype(..)
   , PbField(..)
   , PbType(..)
+  , PbOption(..)
+  , OptionVal(..)
     -- * Reading of protobuf
   , loadProtobuf
   ) where
@@ -24,25 +26,42 @@ import Data.Protobuf.Internal.Transform
 
 
 ----------------------------------------------------------------
--- Reading protobuf source
+-- Data types
 ----------------------------------------------------------------
 
 -- | Qualified name
 data QName = QName [String] String
            deriving (Show,Eq,Typeable,Data)
+
+-- | Data type declared in the .proto file. It could be either message
+--   or enumeration.
 data PbDatatype
   = PbMessage QName [PbField]
   | PbEnum    QName [(Integer,String)]
   deriving (Show,Eq,Typeable,Data)
 
-data PbField = PbField Modifier PbType String Integer
+-- | Field of message.
+data PbField = PbField Modifier PbType String Integer [PbOption]
              deriving (Show,Eq,Typeable,Data)
 
+-- | Type of field
 data PbType
   = TyMessage QName
   | TyEnum    QName
   | TyPrim    PrimType
   deriving (Show,Eq,Typeable,Data)
+
+-- | Supported protobuf options
+data PbOption
+  = OptDefault OptionVal
+  | OptRepeated
+  deriving (Show,Eq,Typeable,Data)
+
+
+
+----------------------------------------------------------------
+-- Reading protobuf source
+----------------------------------------------------------------
 
 -- | Load all protobuf files
 loadProtobuf :: [String]                   -- ^ Search path for includes
@@ -77,7 +96,7 @@ extractData pb =
       = PbMessage (makeQN path nm)
                   (cnvField =<< fields)
     cnvField (MessageField (Field modif ty name (FieldTag tag) _))
-      = [PbField modif fType (identifier name) tag]
+      = [PbField modif fType (identifier name) tag []]
       where
         fType = case ty of
                   BaseType p -> TyPrim p
@@ -91,6 +110,6 @@ extractData pb =
         [ (i,name) | EnumField (Identifier name) i <- fields]
     -- names
     makeQN path nm = QName (map identifier $ init path) (identifier nm)
-    -- 
+    --
     qname (FullQualId (Qualified path nm)) = makeQN path nm
     qname _ = error "Impossible 22"
