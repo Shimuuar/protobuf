@@ -91,7 +91,7 @@ MessageField
     -- FIXME: extend
     -- FIXME: extension
   | Option    { MsgOption    $1 }
-Field -- FIXME: field options
+Field
   : Modifier Typename Ident "=" "int" ";"                   { Field $1 $2 (castIdent $3) (FieldTag $5) [] }
   | Modifier Typename Ident "=" "int" "[" FieldOpts "]" ";" { Field $1 $2 (castIdent $3) (FieldTag $5) $7 }
 FieldOpts 
