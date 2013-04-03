@@ -94,13 +94,15 @@ deserializeDecl name fields = do
   updFun <- newName "updFun"
   emp    <- newName "emp"
   --
-  letE [ varP emp $= ((conE 'MutableMsg `appE` varE 'newMutableHVec `appE` conE '())
+  letE [ varP emp $= (app [ conE 'MutableMsg
+                          , varE 'newMutableHVec
+                          , conE '()]
                       `sigE`
                       (conT ''MutableMsg `appT` return (qstrLit name))
                        )
        , updateDecl updFun (zip [0..] fields)
        ] $
-      (varE 'getRecords `appE` varE updFun `appE` varE emp)
+      app [varE 'getRecords, varE updFun, varE emp]
 
 -- Function for updating single record
 updateDecl funNm fields = do
@@ -111,9 +113,8 @@ updateDecl funNm fields = do
     wt  <- newName "wt"
     msg <- newName "msg"
     [varP wt, varP msg]
-      $== doE [ noBindS $ varE 'skipUnknownField `appE` varE wt
-              , noBindS $ varE 'return           `appE` varE msg
-              ]
+      $== [| skipUnknownField $(varE wt) >> return $(varE msg) |]
+
   --
   return $ FunD funNm (concat cls ++ [fallback])
 
@@ -129,8 +130,11 @@ updateClause (i,(PbField modif ty _ tag opts)) = do
             []  -> varE 'writeRepeated
             [_] -> varE 'writeRepeatedPacked
             _   -> error "Internal error"
-      n       = varE 'sing `sigE` (conT ''Sing `appT` litT (numTyLit i))
-      updExpr = updater `appE` n `appE` varE (fieldParser ty) `appE` varE msg
+      updExpr = [| $updater
+                      (sing :: Sing $(litT (numTyLit i)))
+                      $(varE (fieldParser ty))
+                      $(varE msg)
+                 |]
   --
   sequence
     [ [ conP 'WireTag [intP tag, intP (getTyTag ty)]
@@ -138,7 +142,7 @@ updateClause (i,(PbField modif ty _ tag opts)) = do
       ] $== updExpr
     , [ conP 'WireTag [intP tag, wildP]
       , wildP
-      ] $== (varE 'fail `appE` litE (StringL "Bad wire tag"))
+      ] $== [| fail "Bad wire tag" |]
     ]
 
 ----------------------------------------------------------------
@@ -251,3 +255,5 @@ pats $== expr = clause pats (normalB expr) []
 -- Value declaration
 ($=) :: PatQ -> ExpQ -> DecQ
 pat $= expr = valD pat (normalB expr) []
+
+app = foldl1 appE
