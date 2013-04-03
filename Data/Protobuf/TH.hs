@@ -26,7 +26,7 @@ import Data.Protobuf.Internal.AST hiding (Type,Message,Field,Protobuf)
 import Data.Protobuf.Serialize.Protobuf
 import Data.Protobuf.Serialize.VarInt
 import Data.Serialize.IEEE754
-
+import Data.Serialize.Get
 
 
 ----------------------------------------------------------------
@@ -208,10 +208,10 @@ fieldParser (TyPrim PbUInt32)   = 'getVarWord32
 fieldParser (TyPrim PbUInt64)   = 'getVarWord64
 fieldParser (TyPrim PbSInt32)   = 'getZigzag32
 fieldParser (TyPrim PbSInt64)   = 'getZigzag64
-fieldParser (TyPrim PbFixed32)  = undefined
-fieldParser (TyPrim PbFixed64)  = undefined
-fieldParser (TyPrim PbSFixed32) = undefined
-fieldParser (TyPrim PbSFixed64) = undefined
+fieldParser (TyPrim PbFixed32)  = 'getWord32le
+fieldParser (TyPrim PbFixed64)  = 'getWord64le
+fieldParser (TyPrim PbSFixed32) = 'getInt32le
+fieldParser (TyPrim PbSFixed64) = 'getInt64le
 fieldParser (TyPrim PbBool)     = 'getVarBool
 fieldParser (TyPrim PbString)   = 'getPbString
 fieldParser (TyPrim PbBytes)    = 'getPbBytestring

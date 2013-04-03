@@ -11,6 +11,11 @@ module Data.Protobuf.Serialize.VarInt (
   , getVarInt64
   , putVarInt32
   , putVarInt64
+    -- * FIxed ints
+  , getInt32le
+  , putInt32le
+  , getInt64le
+  , putInt64le
     -- * Zig-zag encoded ints
   , getZigzag32
   , getZigzag64
@@ -138,3 +143,22 @@ enc32 n =   fromIntegral (n `shiftL` 1)
 enc64 :: Int64 -> Word64
 enc64 n =   fromIntegral (n `shiftL` 1) 
       `xor` fromIntegral (n `shiftR` 63)
+
+
+----------------------------------------------------------------
+-- Fixed width ints
+----------------------------------------------------------------
+
+getInt32le :: Get Int32
+getInt32le = fromIntegral <$> getWord32le
+
+putInt32le :: Int32 -> Put
+putInt32le = putWord32le . fromIntegral
+
+getInt64le :: Get Int64
+getInt64le = fromIntegral <$> getWord64le
+
+putInt64le :: Int64 -> Put
+putInt64le = putWord64le . fromIntegral
+
+
