@@ -12,7 +12,8 @@ module Data.Protobuf (
   , loadProtobuf
   ) where
 
-import Data.Data (Data,Typeable)
+import Data.Functor ((<$>))
+import Data.Data    (Data,Typeable)
 import qualified Data.Foldable    as F
 import qualified Data.Traversable as T
 import Data.Generics.Uniplate.Data
@@ -54,7 +55,7 @@ data PbType
 -- | Supported protobuf options
 data PbOption
   = OptDefault OptionVal
-  | OptRepeated
+  | OptPacked
   deriving (Show,Eq,Typeable,Data)
 
 
@@ -83,27 +84,46 @@ loadProtobuf includes srcs = runPbMonad (PbContext includes) $ do
   res <-  mapM resolveTypeNames
       =<< mapM (mergeImports dmap) files
   -- Extract data from AST
-  return $ extractData =<< res
+  collectErrors $ concat <$> mapM extractData res
 
 
-extractData :: ProtobufFile -> [PbDatatype]
-extractData pb =
-  [ cnvMessage x | x <- universeBi $ protobufFile pb ] ++
-  [ cnvEnum    x | x <- universeBi $ protobufFile pb ]
+extractData :: ProtobufFile -> PbMonadE [PbDatatype]
+extractData pb = do
+  msgs  <- mapM cnvMessage $ universeBi $ protobufFile pb
+  enums <- return $ map cnvEnum    $ universeBi $ protobufFile pb
+  return $ msgs ++ enums
   where
-    -- Extract messages
+    -- Extract message
     cnvMessage (Message nm fields path)
-      = PbMessage (makeQN path nm)
-                  (cnvField =<< fields)
-    cnvField (MessageField (Field modif ty name (FieldTag tag) _))
-      = [PbField modif fType (identifier name) tag []]
+      =  PbMessage (makeQN path nm)
+     <$> (concat <$> mapM cnvField fields)
+    -- Convert and check field
+    cnvField (MessageField (Field modif ty name (FieldTag tag) opts)) = do
+      optPacked <-
+        case (modif,lookupOptionStr "packed" opts) of
+          -- No option
+          (_,Nothing) -> return []
+          -- Correct options
+          (Repeated, Just (OptBool False)) -> return []
+          (Repeated, Just (OptBool True )) -> return [OptPacked]
+          -- Handle incorrect cases
+          _ -> oops "Incorrect packed option" >> return []
+      optDefault <-
+        case (modif, lookupOptionStr "default" opts) of
+          (_,        Nothing) -> return []
+          (Repeated, Just _ ) -> oops "repeated field cannot have default value" >> return []
+          (_       , Just v ) -> matchDefault fType v
+      return [PbField modif fType (identifier name) tag (optPacked ++ optDefault)]
       where
+        -- Type of field
         fType = case ty of
                   BaseType p -> TyPrim p
                   EnumType q -> TyEnum    $ qname q
                   MsgType  q -> TyMessage $ qname q
-                  _          -> error "impossible 21"
-    cnvField _ = []
+                  _          -> error "Internal error: unresolved name"
+        -- Check for default option
+
+    cnvField _ = return []
     -- Extract enums
     cnvEnum (EnumDecl nm fields path)
       = PbEnum (makeQN path nm)
@@ -113,3 +133,41 @@ extractData pb =
     --
     qname (FullQualId (Qualified path nm)) = makeQN path nm
     qname _ = error "Impossible 22"
+
+
+matchDefault :: PbType -> OptionVal -> PbMonadE [PbOption]
+matchDefault (TyEnum    _) = \_ -> oops "default values for enums are not suported" >> return []
+matchDefault (TyMessage _) = \_ -> oops "Fields with message types could not have default value" >> return []
+matchDefault (TyPrim PbDouble)   = wantFloat
+matchDefault (TyPrim PbFloat)    = wantFloat
+matchDefault (TyPrim PbInt32)    = wantInt
+matchDefault (TyPrim PbInt64)    = wantInt
+matchDefault (TyPrim PbUInt32)   = wantInt
+matchDefault (TyPrim PbUInt64)   = wantInt
+matchDefault (TyPrim PbSInt32)   = wantInt
+matchDefault (TyPrim PbSInt64)   = wantInt
+matchDefault (TyPrim PbFixed32)  = wantInt
+matchDefault (TyPrim PbFixed64)  = wantInt
+matchDefault (TyPrim PbSFixed32) = wantInt
+matchDefault (TyPrim PbSFixed64) = wantInt
+matchDefault (TyPrim PbBool)     = wantBool
+matchDefault (TyPrim PbString)   = wantString
+matchDefault (TyPrim PbBytes)    = \_ -> oops "bytes field cannot have deafult value" >> return []
+
+
+wantFloat :: OptionVal -> PbMonadE [PbOption]
+wantFloat o@(OptInt  _) = return [OptDefault o]
+wantFloat o@(OptReal _) = return [OptDefault o]
+wantFloat _             = oops "bad option" >> return []
+
+wantInt :: OptionVal -> PbMonadE [PbOption]
+wantInt o@(OptInt  _) = return [OptDefault o]
+wantInt _             = oops "bad option" >> return []
+
+wantBool :: OptionVal -> PbMonadE [PbOption]
+wantBool o@(OptBool  _) = return [OptDefault o]
+wantBool _              = oops "bad option" >> return []
+
+wantString :: OptionVal -> PbMonadE [PbOption]
+wantString o@(OptString  _) = return [OptDefault o]
+wantString _                = oops "bad option" >> return []

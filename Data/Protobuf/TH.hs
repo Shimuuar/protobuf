@@ -118,7 +118,7 @@ updateDecl funNm fields = do
   return $ FunD funNm (concat cls ++ [fallback])
 
 -- Update clause for single field
-updateClause (i,(PbField modif ty _ tag)) = do
+updateClause (i,(PbField modif ty _ tag _)) = do
   msg <- newName "msg"
   --
   let updater = case modif of
@@ -143,7 +143,7 @@ updateClause (i,(PbField modif ty _ tag)) = do
 
 -- Produce pair (name, type) for field of the message.
 findType :: PbField -> (String, Type)
-findType (PbField m ty name _)
+findType (PbField m ty name _ _)
   = (name, modifyTy baseTy)
   where
     modifyTy =
