@@ -4,9 +4,31 @@
 --
 -- Message and enum names are represented as their name and path to
 -- the name in global namespace.
-module Data.Protobuf.Internal.AST where
+module Data.Protobuf.Internal.AST (
+    -- * Protobuf AST
+    Protobuf(..)
+    -- ** Enums
+  , EnumDecl(..)
+  , EnumField(..)
+    -- ** Messages
+  , Message(..)
+  , MessageField(..)
+  , Extension(..)
+  , Field(..)
+    -- * Basic types
+  , QIdentifier(..)
+  , FieldTag(..)
+    -- * Protobuf types
+  , Modifier(..)
+  , Type(..)
+  , PrimType(..)
+    -- * Options
+  , Option(..)
+  , OptionVal(..)
+  , lookupOption
+  , lookupOptionStr
+  ) where
 
-import Data.List (intercalate)
 import Data.Data
 import Data.Protobuf.Internal.Names
 
@@ -155,4 +177,3 @@ data OptionVal
   | OptInt    Integer
   | OptReal   Rational
   deriving (Show,Typeable,Data)
-
