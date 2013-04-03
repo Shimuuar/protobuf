@@ -1,6 +1,14 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 -- |
-module Data.Protobuf where
+module Data.Protobuf (
+    -- * Data types
+    QName(..)
+  , PbDatatype(..)
+  , PbField(..)
+  , PbType(..)
+    -- * Reading of protobuf
+  , loadProtobuf
+  ) where
 
 import Data.Data (Data,Typeable)
 import qualified Data.Foldable    as F
@@ -12,8 +20,6 @@ import Data.Protobuf.Internal.Names
 import Data.Protobuf.Internal.Control
 import Data.Protobuf.Internal.Types
 import Data.Protobuf.Internal.Transform
-
-import Text.Groom
 
 
 
