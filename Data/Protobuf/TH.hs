@@ -1,5 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 -- |
 -- Generation of instances using template haskell
 module Data.Protobuf.TH (
@@ -19,7 +20,7 @@ import Language.Haskell.TH
 import Language.Haskell.TH.Syntax (qAddDependentFile)
 import GHC.TypeLits
 
-import Data.Vector.HFixed (HVec,Fun(..),newMutableHVec,writeMutableHVec)
+import Data.Vector.HFixed (HVector(..),HVec,Fun(..),newMutableHVec,writeMutableHVec)
 
 import Data.Protobuf
 import Data.Protobuf.API
@@ -58,7 +59,21 @@ genInstance (PbMessage name fields) = do
       fieldTypes = makeTyList $ map snd tyFields
   execWriterT $ do
     -- Type instance for 'Message'
-    tell [ TySynInstD ''Message [qstrLit name] $ ConT ''HVec `AppT` fieldTypes ]
+    con <- lift $ newName $ "Message_" ++ map (\c -> if c == '.' then '_' else c) (unqualify name)
+    tell [ NewtypeInstD [] ''Message [qstrLit name]
+             (NormalC con [(NotStrict, ConT ''HVec `AppT` fieldTypes)])
+             [''Show]
+         ]
+    let msgNm = return $ qstrLit name
+    v <- lift $ newName "v"
+    f <- lift $ newName "f"
+    tellD
+      [d| instance HVector (Message $msgNm) where
+             type Elems (Message $msgNm) = FieldTypes $msgNm
+             construct = $( [| fmap $(conE con) construct |])
+             inspect   = $(lamE [conP con [varP v], varP f]
+                                [| inspect $(varE v) $(varE f) |])
+        |]
     -- Type instance for 'FieldTypes'
     tell [ TySynInstD ''FieldTypes [qstrLit name] $ fieldTypes ]
     -- Instance for 'Field' getter/setter
@@ -206,8 +221,8 @@ findType (PbField m ty name _ _)
         TyPrim PbString   -> ConT ''String
         TyPrim PbBytes    -> ConT ''ByteString
         -- Custom types
-        TyMessage nm      -> ConT ''Msg `AppT` qstrLit nm
-        TyEnum    nm      -> ConT ''Msg `AppT` qstrLit nm
+        TyMessage nm      -> ConT ''Message `AppT` qstrLit nm
+        TyEnum    nm      -> ConT ''Message `AppT` qstrLit nm
 
 
 -- Get type tag which corresponds to the given type
@@ -282,4 +297,8 @@ pats $== expr = clause pats (normalB expr) []
 ($=) :: PatQ -> ExpQ -> DecQ
 pat $= expr = valD pat (normalB expr) []
 
+app :: [ExpQ] -> ExpQ
 app = foldl1 appE
+
+tellD :: Q [Dec] -> WriterT [Dec] Q ()
+tellD = tell <=< lift

@@ -34,7 +34,6 @@
 -- > }
 module Data.Protobuf.API (
     Message
-  , Msg(..)
   , FieldTypes
   , Field(..)
     -- * Serialization
@@ -65,13 +64,7 @@ import GHC.TypeLits
 -- > Message "Person.PhoneNumber"
 --
 --   It maps both messages and enums.
-type family Message (msg :: Symbol) :: *
-
-
--- | Newtype wrapper for the representation of message
-newtype Msg (msg :: Symbol) = Msg (Message msg)
-
-deriving instance Show (Message msg) => Show (Msg msg)
+data family Message (msg :: Symbol) :: *
 
 -- | Haskell types of all fields in message.
 type family FieldTypes (msg :: Symbol) :: [*]
@@ -94,13 +87,9 @@ data MutableMsg (msg :: Symbol) =
   ()
   -- (ST s (STRef s Int))
 
--- freezeMutableMsg :: Protobuf msg => MutableMsg msg -> H.HVec (FieldTypes msg)
--- freezeMutableMsg (MutableMsg marr _) = runST $ H.unsafeFreezeHVec =<< marr
-
-
-freezeMutableMsg :: Protobuf msg => MutableMsg msg -> Get (Msg msg)
+freezeMutableMsg :: Protobuf msg => MutableMsg msg -> Get (Message msg)
 freezeMutableMsg (MutableMsg marr _)
-  = return $ Msg $ H.convert $ runST $ H.unsafeFreezeHVec =<< marr
+  = return $ H.convert $ runST $ H.unsafeFreezeHVec =<< marr
 
 -- | Data type is protocol buffer object.  This type class provide
 --   serialization and deserialization. Access to fields is provided
@@ -112,8 +101,8 @@ class ( HVector (Message msg)
   -- | Parser for the message
   getMessageST :: Get (MutableMsg msg)
   -- | Encoder for the message
-  serialize :: Msg msg -> Put
+  serialize :: Message msg -> Put
 
-getMessage :: Protobuf msg => Get (Msg msg)
+getMessage :: Protobuf msg => Get (Message msg)
 getMessage = do
   freezeMutableMsg =<< getMessageST
