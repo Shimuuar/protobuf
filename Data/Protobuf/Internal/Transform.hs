@@ -90,7 +90,9 @@ loadImports _ = return ()
 -- Validation
 ----------------------------------------------------------------
 
--- | Check that there are no duplicate label numbers.
+-- | Check that there are no duplicate label numbers and all label
+--   numbers are in correct range. We do not check that message names
+--   do not collide since they will be found during name resolution.
 checkLabels :: [Protobuf] -> PbMonad ()
 checkLabels pb = collectErrors $ do
   mapM_ checkMessage [ fs | Message  _ fs _ <- universeBi pb ]

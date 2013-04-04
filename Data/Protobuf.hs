@@ -64,7 +64,7 @@ data PbOption
 -- Reading protobuf source
 ----------------------------------------------------------------
 
--- | Load all protobuf files
+-- | Load all protobuf files.
 loadProtobuf :: [String]                   -- ^ Search path for includes
              -> [FilePath]                 -- ^ Files to load
              -> IO (Either String [PbDatatype])
@@ -86,6 +86,11 @@ loadProtobuf includes srcs = runPbMonad (PbContext includes) $ do
   -- Extract data from AST
   collectErrors $ concat <$> mapM extractData res
 
+
+
+----------------------------------------------------------------
+-- Worker functions
+----------------------------------------------------------------
 
 extractData :: ProtobufFile -> PbMonadE [PbDatatype]
 extractData pb = do
@@ -136,8 +141,8 @@ extractData pb = do
 
 
 matchDefault :: PbType -> OptionVal -> PbMonadE [PbOption]
-matchDefault (TyEnum    _) = \_ -> oops "default values for enums are not suported" >> return []
-matchDefault (TyMessage _) = \_ -> oops "Fields with message types could not have default value" >> return []
+matchDefault (TyEnum    _)       = \_ -> oops "default values for enums are not suported" >> return []
+matchDefault (TyMessage _)       = \_ -> oops "Fields with message types could not have default value" >> return []
 matchDefault (TyPrim PbDouble)   = wantFloat
 matchDefault (TyPrim PbFloat)    = wantFloat
 matchDefault (TyPrim PbInt32)    = wantInt
