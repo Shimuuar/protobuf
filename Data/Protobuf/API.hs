@@ -63,7 +63,16 @@ import GHC.TypeLits
 -- > Message "Person
 -- > Message "Person.PhoneNumber"
 --
---   It maps both messages and enums.
+--   By default messages are newtype wrappers over heterogenous
+--   vectors with corresponding types.
+--
+--   Enumerations however are more difficult. Most natural way is to
+--   generate data type with constructors with names corresponding to
+--   enum fields. But then we can have constructors' name clashes.
+--
+--   It seems there is no single option that could reasonably work in
+--   every case. So function that generate instances have selection of
+--   options to handle name clashes.
 data family Message (msg :: Symbol) :: *
 
 -- | Haskell types of all fields in message.
