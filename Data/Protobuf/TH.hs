@@ -227,24 +227,9 @@ findType (PbField m ty name _ _)
 
 -- Get type tag which corresponds to the given type
 getTyTag :: PbType -> Integer
-getTyTag (TyPrim PbDouble)   = fromIntegral tag_FIXED64
-getTyTag (TyPrim PbFloat)    = fromIntegral tag_FIXED32
-getTyTag (TyPrim PbInt32)    = fromIntegral tag_VARINT
-getTyTag (TyPrim PbInt64)    = fromIntegral tag_VARINT
-getTyTag (TyPrim PbUInt32)   = fromIntegral tag_VARINT
-getTyTag (TyPrim PbUInt64)   = fromIntegral tag_VARINT
-getTyTag (TyPrim PbSInt32)   = fromIntegral tag_VARINT
-getTyTag (TyPrim PbSInt64)   = fromIntegral tag_VARINT
-getTyTag (TyPrim PbFixed32)  = fromIntegral tag_FIXED32
-getTyTag (TyPrim PbFixed64)  = fromIntegral tag_FIXED64
-getTyTag (TyPrim PbSFixed32) = fromIntegral tag_FIXED32
-getTyTag (TyPrim PbSFixed64) = fromIntegral tag_FIXED64
-getTyTag (TyPrim PbBool)     = fromIntegral tag_VARINT
-getTyTag (TyPrim PbString)   = fromIntegral tag_LENDELIM
-getTyTag (TyPrim PbBytes)    = fromIntegral tag_LENDELIM
--- Custom types
-getTyTag (TyMessage _)       = fromIntegral tag_LENDELIM
-getTyTag (TyEnum    _)       = fromIntegral tag_VARINT
+getTyTag (TyPrim    ty) = fromIntegral $ fromEnum $ typeLabel ty
+getTyTag (TyMessage _ ) = fromIntegral $ fromEnum LAB_LENDELIM
+getTyTag (TyEnum    _ ) = fromIntegral $ fromEnum LAB_VARINT
 
 
 -- Name parser function for the given type
