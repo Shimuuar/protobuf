@@ -91,9 +91,32 @@ genInstance (PbMessage name fields) = do
              , ValD (VarP 'getMessageST) (NormalB $ deser) []
              ]
          ]
-genInstance (PbEnum name _) = do
-  return
-    [ TySynInstD ''Message [qstrLit name] $ ConT ''Int ]
+-- Generate instances for enums
+genInstance (PbEnum name fields) = execWriterT $ do
+  -- Data constructor
+  let constrs =
+        [ NormalC (mkName con) []
+        | (_,con) <- fields ]
+  tell [ DataInstD [] ''Message [qstrLit name] constrs
+         [''Show,''Eq,''Ord]]
+  -- PbEnum instance
+  let exprFrom = do
+        a <- newName "a"
+        lamE [varP a] $ caseE (varE a)
+          [ match (conP (mkName nm) []) (normalB $ litE (integerL i)) []
+          | (i,nm) <- fields ]
+  let exprTo = do
+        a <- newName "a"
+        lamE [varP a] $ caseE (varE a) $
+          [ match (litP (integerL i)) (normalB $ conE 'Just `appE`conE (mkName nm)) [] 
+          | (i,nm) <- fields
+          ]++[match wildP (normalB $ conE 'Nothing) []]
+  tellD [d| instance PbEnum (Message $(return (qstrLit name))) where
+              toPbEnum   = $exprTo
+              fromPbEnum = $exprFrom
+          |]
+
+
 
 -- Getter function
 getterTH :: Int -> Int -> Q Exp
