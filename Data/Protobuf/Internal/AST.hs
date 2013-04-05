@@ -22,6 +22,8 @@ module Data.Protobuf.Internal.AST (
   , Modifier(..)
   , Type(..)
   , PrimType(..)
+  , TypeLabel(..)
+  , typeLabel
     -- * Options
   , Option(..)
   , OptionVal(..)
@@ -152,6 +154,34 @@ data PrimType
   | PbString   -- ^ UTF8 encoded string
   | PbBytes    -- ^ Byte sequence
   deriving (Show,Eq,Typeable,Data)
+
+-- | Type label which is used in encoding
+data TypeLabel
+  = LAB_VARINT
+  | LAB_FIXED64
+  | LAB_LENDELIM
+  | LAB_STARTGR
+  | LAB_ENDGR
+  | LAB_FIXED32
+  deriving (Show,Eq,Enum,Typeable,Data)
+
+typeLabel :: PrimType -> TypeLabel
+typeLabel PbDouble   = LAB_FIXED64
+typeLabel PbFloat    = LAB_FIXED32
+typeLabel PbInt32    = LAB_VARINT
+typeLabel PbInt64    = LAB_VARINT
+typeLabel PbUInt32   = LAB_VARINT
+typeLabel PbUInt64   = LAB_VARINT
+typeLabel PbSInt32   = LAB_VARINT
+typeLabel PbSInt64   = LAB_VARINT
+typeLabel PbFixed32  = LAB_FIXED32
+typeLabel PbFixed64  = LAB_FIXED64
+typeLabel PbSFixed32 = LAB_FIXED32
+typeLabel PbSFixed64 = LAB_FIXED64
+typeLabel PbBool     = LAB_VARINT
+typeLabel PbString   = LAB_LENDELIM
+typeLabel PbBytes    = LAB_LENDELIM
+
 
 data Option = Option (QualifiedId TagOption) OptionVal
             deriving (Show,Typeable,Data)
