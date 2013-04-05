@@ -80,7 +80,7 @@ Import
   : "import" "strlit" ";"     { Import $2 }
 -- Message declaration
 Message
-  : "message" Ident "{" MessageFields "}" { Message (castIdent $2) $4 [] }
+  : "message" Ident "{" MessageFields "}" { Message (unqualified (castIdent $2)) $4 }
 MessageFields
   : {- empty -}                { []      }
   | MessageField MessageFields { $1 : $2 }
@@ -105,7 +105,7 @@ Modifier
 
 -- Enumeration
 Enum
-  : "enum" Ident "{" EnumFields "}"   { EnumDecl (castIdent $2) $4 [] }
+  : "enum" Ident "{" EnumFields "}"   { EnumDecl (unqualified (castIdent $2)) $4 }
 EnumFields
   : EnumField            { $1 : [] }
   | EnumField EnumFields { $1 : $2 }

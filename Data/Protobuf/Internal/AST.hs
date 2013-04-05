@@ -53,12 +53,9 @@ data Protobuf =
 --   * Enum name
 --
 --   * Fields of enumeration
---
---   * Location in namespace
 data EnumDecl = EnumDecl 
-                (Identifier TagType)
+                (QualifiedId TagType)
                 [EnumField]
-                [Identifier TagType]
                 deriving (Show,Typeable,Data)
 
 -- | Enumeration field
@@ -72,12 +69,9 @@ data EnumField
 --   * Message name
 --
 --   * Message fields
---
---   * Location in namespace (message name included)
 data Message = Message 
-               (Identifier TagType)
+               (QualifiedId TagType)
                [MessageField]
-               [Identifier TagType]
                deriving (Show,Typeable,Data)
 
 -- | Single field in message body. Note that groups are not supported.

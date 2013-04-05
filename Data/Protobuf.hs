@@ -99,8 +99,8 @@ extractData pb = do
   return $ msgs ++ enums
   where
     -- Extract message
-    cnvMessage (Message nm fields path)
-      =  PbMessage (makeQN path nm)
+    cnvMessage (Message nm fields)
+      =  PbMessage (makeQN nm)
      <$> (concat <$> mapM cnvField fields)
     -- Convert and check field
     cnvField (MessageField (Field modif ty name (FieldTag tag) opts)) = do
@@ -130,14 +130,14 @@ extractData pb = do
 
     cnvField _ = return []
     -- Extract enums
-    cnvEnum (EnumDecl nm fields path)
-      = PbEnum (makeQN path nm)
+    cnvEnum (EnumDecl nm fields)
+      = PbEnum (makeQN nm)
         [ (i,name) | EnumField (Identifier name) i <- fields]
     -- names
-    makeQN path nm = QName (map identifier $ init path) (identifier nm)
+    makeQN (Qualified path nm) = QName (map identifier path) (identifier nm)
     --
-    qname (FullQualId (Qualified path nm)) = makeQN path nm
-    qname _ = error "Impossible 22"
+    qname (FullQualId qn) = makeQN qn
+    qname _               = error "Impossible 22"
 
 
 matchDefault :: PbType -> OptionVal -> PbMonadE [PbOption]

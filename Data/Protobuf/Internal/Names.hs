@@ -11,6 +11,7 @@ module Data.Protobuf.Internal.Names (
     -- ** Qualified
   , QualifiedId
   , Qualified(..)
+  , unqualified
   , addQualifier
   , addQualList
     -- * Namespaces
@@ -63,6 +64,10 @@ type QualifiedId t = Qualified t (Identifier t)
 -- | Qualified identifier
 data Qualified t a = Qualified [Identifier t] a
                    deriving (Show,Eq,Ord,Typeable,Data)
+
+-- | Unqualified name
+unqualified :: a -> Qualified t a
+unqualified = Qualified []
 
 -- | Add single qualifier
 addQualifier :: Identifier t -> Qualified t a -> Qualified t a

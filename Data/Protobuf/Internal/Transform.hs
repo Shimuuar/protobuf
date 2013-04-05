@@ -95,8 +95,8 @@ loadImports _ = return ()
 --   do not collide since they will be found during name resolution.
 checkLabels :: [Protobuf] -> PbMonad ()
 checkLabels pb = collectErrors $ do
-  mapM_ checkMessage [ fs | Message  _ fs _ <- universeBi pb ]
-  mapM_ checkEnum    [ fs | EnumDecl _ fs _ <- universeBi pb ]
+  mapM_ checkMessage [ fs | Message  _ fs <- universeBi pb ]
+  mapM_ checkEnum    [ fs | EnumDecl _ fs <- universeBi pb ]
   mapM_ checkFieldTag $ universeBi pb
   where
     -- Check for duplicate tags in message
@@ -175,18 +175,20 @@ collectPackageNames _ x = return x
 
 -- Get namespace for a message
 collectMessageNames :: [Identifier TagType] -> Message -> NameCollector Message
-collectMessageNames path (Message name fields _) = do
+collectMessageNames path (Message (Qualified [] name) fields) = do
   let path' = path ++ [name]
   (fs,ns) <- lift $ runNamespace $ mapM (collectFieldNames path') fields
   addName $ MsgName name ns
-  return  $ Message name fs path'
+  return  $ Message (Qualified path name) fs
+collectMessageNames _ _ = error "Internal error"
 
 -- Get namespace for an enum
 collectEnumNames :: [Identifier TagType] -> EnumDecl -> NameCollector EnumDecl
-collectEnumNames path (EnumDecl name fields _) = do
+collectEnumNames path (EnumDecl (Qualified [] name) fields) = do
   addName (EnumName name)
   mapM_ addName [ FieldName n | EnumField n _ <- fields]
-  return $ EnumDecl name fields path
+  return $ EnumDecl (Qualified path name) fields
+collectEnumNames _ _ = error "Internal error"
 
 -- Collect names from the fields
 collectFieldNames :: [Identifier TagType] -> MessageField -> NameCollector MessageField
@@ -247,9 +249,9 @@ resolveTypeNames p@(ProtobufFile _ _ global) =
   collectErrors $ transformBiM resolve p
   where
     -- Resolve type names in message
-    resolve (Message name fields ns) = do
-      f <- mapM (resolveField (Names global ns)) fields
-      return $ Message name f ns
+    resolve (Message nm@(Qualified qual name) fields) = do
+      f <- mapM (resolveField (Names global (qual ++ [name]))) fields
+      return $ Message nm f
     -- Resolve type names in messag field
     resolveField ns (MessageField (Field m (SomeType t) n tag o)) = do
       qt <- toTypename =<< resolveName ns t
