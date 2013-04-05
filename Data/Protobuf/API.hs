@@ -36,6 +36,7 @@ module Data.Protobuf.API (
     Message
   , FieldTypes
   , Field(..)
+  , PbEnum(..)
     -- * Serialization
   , Protobuf(..)
   , getMessage
@@ -78,6 +79,10 @@ data family Message (msg :: Symbol) :: *
 -- | Haskell types of all fields in message.
 type family FieldTypes (msg :: Symbol) :: [*]
 
+-- | Type class for protocol buffers enumerations
+class PbEnum a where
+  fromPbEnum :: a -> Int
+  toPbEnum   :: Int -> Maybe a
 
 -- | Access to fields of the message.
 class Field (msg :: Symbol) (fld :: Symbol) where
