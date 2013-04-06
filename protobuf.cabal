@@ -31,8 +31,7 @@ Library
     array,
     template-haskell >= 2.8,
     groom,
-    fixed-vector-hetero,
-    ansi-wl-pprint
+    fixed-vector-hetero
   Exposed-modules:
     Data.Protobuf
     Data.Protobuf.API
