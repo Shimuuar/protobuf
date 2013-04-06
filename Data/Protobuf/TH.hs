@@ -1,6 +1,5 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeFamilies          #-}
 -- |
 -- Generation of instances using template haskell
 module Data.Protobuf.TH (
@@ -58,26 +57,26 @@ genInstance (PbMessage name fields) = do
   let tyFields   = map findType fields
       fieldTypes = makeTyList $ map snd tyFields
   execWriterT $ do
-    -- Type instance for 'Message'
-    con <- lift $ newName $ "Message_" ++ map (\c -> if c == '.' then '_' else c) (unqualify name)
-    tell [ NewtypeInstD [] ''Message [qstrLit name]
-             (NormalC con [(NotStrict, ConT ''HVec `AppT` fieldTypes)])
-             [''Show]
-         ]
+    -- Data instance for 'Message'
+    con <- lift $ newName $ "Message_" ++ unqualifyWith '_' name
     let msgNm = return $ qstrLit name
-    v <- lift $ newName "v"
-    f <- lift $ newName "f"
-    tellD
-      [d| instance HVector (Message $msgNm) where
-             type Elems (Message $msgNm) = FieldTypes $msgNm
-             construct = $( [| fmap $(conE con) construct |])
-             inspect   = $(lamE [conP con [varP v], varP f]
-                                [| inspect $(varE v) $(varE f) |])
-        |]
+    tellD1 $ newtypeInstD (return []) ''Message [msgNm]
+              (normalC con [return (NotStrict, ConT ''HVec `AppT` fieldTypes)])
+              [''Show]
+    -- HVector instance
+    do v <- lift $ newName "v"
+       f <- lift $ newName "f"
+       tellD
+         [d| instance HVector (Message $msgNm) where
+               type Elems (Message $msgNm) = FieldTypes $msgNm
+               construct = $( [| fmap $(conE con) construct |])
+               inspect   = $(lamE [conP con [varP v], varP f]
+                                  [| inspect $(varE v) $(varE f) |])
+           |]
     -- Type instance for 'FieldTypes'
     tell [ TySynInstD ''FieldTypes [qstrLit name] $ fieldTypes ]
     -- Instance for 'Field' getter/setter
-    forM (zip [0..] tyFields) $ \(i,(field,ty)) -> do
+    forM_ (zip [0..] tyFields) $ \(i,(field,ty)) -> do
       lam <- lift $ getterTH (length tyFields) i
       tell [ InstanceD [] (ConT ''Field `AppT` qstrLit name `AppT` strLit field)
                [ TySynInstD ''FieldTy [qstrLit name, strLit field] ty
@@ -289,7 +288,10 @@ qstrLit :: QName -> Type
 qstrLit = strLit . unqualify
 
 unqualify :: QName -> String
-unqualify (QName ns n) = intercalate "." (ns ++ [n])
+unqualify = unqualifyWith '.'
+
+unqualifyWith :: Char -> QName -> String
+unqualifyWith c (QName ns n) = intercalate [c] (ns ++ [n])
 
 makeTyList :: [Type] -> Type
 makeTyList = foldr (\a ls -> PromotedConsT `AppT` a `AppT` ls) PromotedNilT
@@ -310,3 +312,6 @@ app = foldl1 appE
 
 tellD :: Q [Dec] -> WriterT [Dec] Q ()
 tellD = tell <=< lift
+
+tellD1 :: Q Dec -> WriterT [Dec] Q ()
+tellD1 = tell . pure <=< lift
