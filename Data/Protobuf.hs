@@ -12,7 +12,11 @@ module Data.Protobuf (
   , loadProtobuf
   ) where
 
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.Maybe
+
 import Data.Functor ((<$>))
+import Data.Maybe   (fromMaybe)
 import Data.Data    (Data,Typeable)
 import qualified Data.Foldable    as F
 import qualified Data.Traversable as T
@@ -98,26 +102,15 @@ extractData pb = do
   enums <- return $ map cnvEnum    $ universeBi $ protobufFile pb
   return $ msgs ++ enums
   where
-    -- Extract message
-    cnvMessage (Message nm fields)
-      =  PbMessage (makeQN nm)
-     <$> (concat <$> mapM cnvField fields)
-    -- Convert and check field
+
+-- Extract message
+cnvMessage :: Message -> PbMonadE PbDatatype
+cnvMessage (Message nm fields)
+  = PbMessage (toQName nm) <$> (concat <$> mapM cnvField fields)
+  where
     cnvField (MessageField (Field modif ty name (FieldTag tag) opts)) = do
-      optPacked <-
-        case (modif,lookupOptionStr "packed" opts) of
-          -- No option
-          (_,Nothing) -> return []
-          -- Correct options
-          (Repeated, Just (OptBool False)) -> return []
-          (Repeated, Just (OptBool True )) -> return [OptPacked]
-          -- Handle incorrect cases
-          _ -> oops "Incorrect packed option" >> return []
-      optDefault <-
-        case (modif, lookupOptionStr "default" opts) of
-          (_,        Nothing) -> return []
-          (Repeated, Just _ ) -> oops "repeated field cannot have default value" >> return []
-          (_       , Just v ) -> matchDefault fType v
+      optPacked  <- optionPacked  modif fType opts
+      optDefault <- optionDefault modif fType opts
       return [PbField modif fType (identifier name) tag (optPacked ++ optDefault)]
       where
         -- Type of field
@@ -127,22 +120,47 @@ extractData pb = do
                   MsgType  q -> TyMessage $ qname q
                   _          -> error "Internal error: unresolved name"
         -- Check for default option
-
     cnvField _ = return []
-    -- Extract enums
-    cnvEnum (EnumDecl nm fields)
-      = PbEnum (makeQN nm)
-        [ (i,name) | EnumField (Identifier name) i <- fields]
-    -- names
-    makeQN (Qualified path nm) = QName (map identifier path) (identifier nm)
-    --
-    qname (FullQualId qn) = makeQN qn
-    qname _               = error "Impossible 22"
 
 
-matchDefault :: PbType -> OptionVal -> PbMonadE [PbOption]
-matchDefault (TyEnum    _)       = \_ -> oops "default values for enums are not suported" >> return []
-matchDefault (TyMessage _)       = \_ -> oops "Fields with message types could not have default value" >> return []
+-- Extract enums
+cnvEnum :: EnumDecl -> PbDatatype
+cnvEnum (EnumDecl nm fields)
+  = PbEnum (toQName nm)
+      [ (i,name) | EnumField (Identifier name) i <- fields]
+
+
+
+----------------------------------------------------------------
+-- Extract option "packed"
+optionPacked :: Modifier -> PbType -> [Option] -> PbMonadE [PbOption]
+optionPacked Repeated ty opts = runOptM $ do
+  o <- liftMB $ lookupOptionStr "packed" opts
+  case o of
+    (OptBool f) -> do
+      case ty of
+        TyPrim t | typeLabel t `elem` [LAB_VARINT,LAB_FIXED32,LAB_FIXED64]
+          -> return $ if f then [OptPacked] else []
+        _ -> oopsM "Only fixed width fields coudl be packed"
+    _ -> oopsM "Option 'packed' must have boolean value"
+optionPacked _ _ opts = runOptM $ do
+  _ <- liftMB $ lookupOptionStr "packed" opts
+  oopsM "Only repeated fiedls can be packed"
+
+
+
+----------------------------------------------------------------
+-- Extract option "default"
+optionDefault :: Modifier -> PbType -> [Option] -> PbMonadE [PbOption]
+optionDefault modif ty opts = runOptM $ do
+  o <- liftMB $ lookupOptionStr "default" opts
+  case modif of
+    Repeated -> oopsM "repeated field cannot have default value"
+    _        -> matchDefault ty o
+
+matchDefault :: PbType -> OptionVal -> MaybeT PbMonadE [PbOption]
+matchDefault (TyEnum    _)       = \_ -> oopsM "default values for enums are not suported"
+matchDefault (TyMessage _)       = \_ -> oopsM "Fields with message types could not have default value"
 matchDefault (TyPrim PbDouble)   = wantFloat
 matchDefault (TyPrim PbFloat)    = wantFloat
 matchDefault (TyPrim PbInt32)    = wantInt
@@ -157,22 +175,46 @@ matchDefault (TyPrim PbSFixed32) = wantInt
 matchDefault (TyPrim PbSFixed64) = wantInt
 matchDefault (TyPrim PbBool)     = wantBool
 matchDefault (TyPrim PbString)   = wantString
-matchDefault (TyPrim PbBytes)    = \_ -> oops "bytes field cannot have deafult value" >> return []
+matchDefault (TyPrim PbBytes)    = \_ -> oopsM "bytes field cannot have deafult value"
 
 
-wantFloat :: OptionVal -> PbMonadE [PbOption]
+wantFloat :: OptionVal -> MaybeT PbMonadE [PbOption]
 wantFloat o@(OptInt  _) = return [OptDefault o]
 wantFloat o@(OptReal _) = return [OptDefault o]
-wantFloat _             = oops "bad option" >> return []
+wantFloat _             = oopsM "bad option"
 
-wantInt :: OptionVal -> PbMonadE [PbOption]
+wantInt :: OptionVal -> MaybeT PbMonadE [PbOption]
 wantInt o@(OptInt  _) = return [OptDefault o]
-wantInt _             = oops "bad option" >> return []
+wantInt _             = oopsM "bad option"
 
-wantBool :: OptionVal -> PbMonadE [PbOption]
+wantBool :: OptionVal -> MaybeT PbMonadE [PbOption]
 wantBool o@(OptBool  _) = return [OptDefault o]
-wantBool _              = oops "bad option" >> return []
+wantBool _              = oopsM "bad option"
 
-wantString :: OptionVal -> PbMonadE [PbOption]
+wantString :: OptionVal -> MaybeT PbMonadE [PbOption]
 wantString o@(OptString  _) = return [OptDefault o]
-wantString _                = oops "bad option" >> return []
+wantString _                = oopsM "bad option"
+
+
+
+----------------------------------------------------------------
+-- Helpers
+----------------------------------------------------------------
+
+-- | Convert qualified name to qname
+toQName :: Qualified t (Identifier t) -> QName
+toQName (Qualified path nm) = QName (map identifier path) (identifier nm)
+
+-- | Convert field name to qname
+qname :: QIdentifier -> QName
+qname (FullQualId qn) = toQName qn
+qname _               = error "Impossible 22"
+
+runOptM :: MaybeT PbMonadE [a]-> PbMonadE [a]
+runOptM m = fromMaybe [] <$> runMaybeT m
+
+oopsM :: String -> MaybeT PbMonadE [a]
+oopsM s = lift (oops s) >> return []
+
+liftMB :: Monad m => Maybe a -> MaybeT m a
+liftMB = MaybeT . return
