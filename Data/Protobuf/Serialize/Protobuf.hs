@@ -14,7 +14,6 @@ module Data.Protobuf.Serialize.Protobuf (
   , putPbString
   , getPbBytestring
   , putPbBytestring
-  -- , getDelimMessage
   , putOptional
     -- * Combinators for the mutable accumulator
   , getRecords
@@ -132,12 +131,6 @@ getPbBytestring = getByteString =<< getVarInt
 -- | Get PB encoded bytestring
 putPbBytestring :: ByteString -> Put
 putPbBytestring bs = putVarInt (BS.length bs) >> putByteString bs
-
--- -- | Decode delimited message
--- getDelimMessage :: Message m => Get (m Unchecked)
--- getDelimMessage = do
---   n <- getVarInt
---   isolate n getMessage
 
 putOptional :: (a -> Put) -> Maybe a -> Put
 putOptional putter (Just x) = putter x
