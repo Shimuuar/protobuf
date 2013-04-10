@@ -87,7 +87,10 @@ class PbEnum a where
 -- | Access to fields of the message.
 class Field (msg :: Symbol) (fld :: Symbol) where
   type FieldTy msg fld :: *
-  getterF :: Fun (FieldTypes msg) (FieldTy msg fld)
+  field :: (Functor f, FieldTy msg fld ~ a)
+        => Sing fld
+        -> (a -> f a)
+        -> (Message msg -> f (Message msg))
 
 
 ----------------------------------------------------------------

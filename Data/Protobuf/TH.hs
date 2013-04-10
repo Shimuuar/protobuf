@@ -22,7 +22,7 @@ import Language.Haskell.TH.Syntax (qAddDependentFile)
 import qualified Language.Haskell.TH.Syntax as TH
 import GHC.TypeLits
 
-import Data.Vector.HFixed (HVector(..),HVec,Fun(..),newMutableHVec,writeMutableHVec)
+import Data.Vector.HFixed (HVector(..),HVec,Fun(..),newMutableHVec,writeMutableHVec,element)
 
 import Data.Protobuf
 import Data.Protobuf.API
@@ -86,13 +86,11 @@ genInstance (PbMessage name fields) = do
     -- Type instance for 'FieldTypes'
     tell [ TySynInstD ''FieldTypes [qstrLit name] $ fieldTypes ]
     -- Instance for 'Field' getter/setter
-    forM_ (zip [0..] tyFields) $ \(i,(field,ty)) -> do
-      lam <- lift $ getterTH (length tyFields) i
-      tell [ InstanceD [] (ConT ''Field `AppT` qstrLit name `AppT` strLit field)
-               [ TySynInstD ''FieldTy [qstrLit name, strLit field] ty
-               , ValD (VarP 'getterF) (NormalB $ AppE (ConE 'Fun) lam) []
-               ]
-           ]
+    forM_ (zip [0..] tyFields) $ \(i,(fld,ty)) -> do
+      tellD1 $ instanceD (return []) (conT ''Field `appT` return (qstrLit name) `appT` return (strLit fld))
+        [ tySynInstD ''FieldTy [return (qstrLit name), return (strLit fld)] (return ty)
+        , varP 'field $= [| const $ element $([|(sing :: Sing $(litT (numTyLit i)))|])  |]
+        ]
     -- Instance for 'Protobuf' (serialization/deserialization)
     deser <- lift $ deserializeDecl  name fields
     ser   <- lift $ serializtionDecl name fields
