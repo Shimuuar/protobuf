@@ -15,6 +15,8 @@ module Data.Protobuf.Serialize.Protobuf (
   , getPbBytestring
   , putPbBytestring
   , putOptional
+  , getPbEnum
+  , putPbEnum
     -- * Combinators for the mutable accumulator
   , getRecords
   , writeRequired
@@ -136,6 +138,16 @@ putOptional :: (a -> Put) -> Maybe a -> Put
 putOptional putter (Just x) = putter x
 putOptional _      Nothing  = return ()
 {-# INLINE putOptional #-}
+
+getPbEnum :: PbEnum m => Get m
+getPbEnum = do
+  n <- getVarInt
+  case toPbEnum n of
+    Just m  -> return m
+    Nothing -> fail "Bad enum"
+
+putPbEnum :: PbEnum m => m -> Put
+putPbEnum = putVarInt . fromPbEnum
 
 
 
