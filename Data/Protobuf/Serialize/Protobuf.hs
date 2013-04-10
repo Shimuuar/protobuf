@@ -114,7 +114,7 @@ getPbString = do
 
 putPbString :: String -> Put
 putPbString str = do
-  put (length str)
+  putVarInt (length str)
   mapM_ put str
 
 -- worker for getPbString
