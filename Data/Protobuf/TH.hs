@@ -143,10 +143,7 @@ serializtionDecl nm fields
     serielizeFld a (PbField Required ty _ tag _) =
       [| put (WireTag $(TH.lift tag) $(TH.lift (getTyTag ty))) >> $(varE (fieldWriter ty)) $(varE a) |]
     serielizeFld a (PbField Optional ty _ tag _) =
-      [| case $(varE a) of
-          Just x  -> put (WireTag $(TH.lift tag) $(TH.lift (getTyTag ty))) >> $(varE (fieldWriter ty)) x
-          Nothing -> return ()
-       |]
+      [| putOptional (\x -> put (WireTag $(TH.lift tag) $(TH.lift (getTyTag ty))) >> $(varE (fieldWriter ty)) x) $(varE a) |]
     serielizeFld a (PbField Repeated ty _ tag opts) =
       case [() | OptPacked <- opts] of
         []  -> [| forM_ $(varE a) $ \x -> put (WireTag $(TH.lift tag) $(TH.lift (getTyTag ty))) >> $(varE (fieldWriter ty)) x |]
