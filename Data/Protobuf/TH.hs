@@ -4,6 +4,7 @@
 -- Generation of instances using template haskell
 module Data.Protobuf.TH (
     generateProtobuf
+  , elm
   ) where
 
 import Control.Applicative
@@ -19,6 +20,7 @@ import qualified Data.Foldable as F
 import qualified Data.Sequence as Seq
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax (qAddDependentFile)
+import Language.Haskell.TH.Quote
 import qualified Language.Haskell.TH.Syntax as TH
 import GHC.TypeLits
 
@@ -51,6 +53,16 @@ generateProtobuf incs fnames = do
   case messages of
     Left  err -> fail err
     Right xs  -> concat <$> mapM genInstance xs
+
+-- | Sugar for the field access
+elm :: QuasiQuoter
+elm = QuasiQuoter
+  { quoteExp  = \s -> [|field|] `appE` [| sing :: Sing $(litT (strTyLit s)) |]
+  , quotePat  = error "No pattern quasi quotation"
+  , quoteType = error "No type quasi quotation"
+  , quoteDec  = error "No declaration quasi quotation"
+  }
+
 
 ----------------------------------------------------------------
 -- Workers
