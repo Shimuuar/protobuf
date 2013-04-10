@@ -133,15 +133,10 @@ deserializeDecl name fields = do
   updFun <- newName "updFun"
   emp    <- newName "emp"
   --
-  letE [ varP emp $= (app [ conE 'MutableMsg
-                          , emptyVec fields
-                          , conE '()]
-                      `sigE`
-                      (conT ''MutableMsg `appT` return (qstrLit name))
-                       )
+  letE [ varP emp $= [| MutableMsg $(emptyVec fields) () :: MutableMsg $(return (qstrLit name)) |]
        , updateDecl updFun (zip [0..] fields)
-       ] $
-      app [varE 'getRecords, varE updFun, varE emp]
+       ]
+       [| getRecords $(varE updFun) $(varE emp) |]
 
 -- Uninitialized vector
 emptyVec :: [PbField] -> Q Exp
