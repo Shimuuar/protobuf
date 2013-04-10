@@ -11,12 +11,15 @@ import Control.Monad
 import Control.Monad.Writer
 import Data.Int
 import Data.Word
+import Data.Maybe      (fromMaybe)
 import Data.List       (intercalate)
 import Data.ByteString (ByteString)
 import Data.Sequence   (Seq)
+import qualified Data.Foldable as F
 import qualified Data.Sequence as Seq
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax (qAddDependentFile)
+import qualified Language.Haskell.TH.Syntax as TH
 import GHC.TypeLits
 
 import Data.Vector.HFixed (HVector(..),HVec,Fun(..),newMutableHVec,writeMutableHVec)
@@ -28,6 +31,8 @@ import Data.Protobuf.Serialize.Protobuf
 import Data.Protobuf.Serialize.VarInt
 import Data.Serialize.IEEE754
 import Data.Serialize.Get
+import Data.Serialize.Put
+import Data.Serialize
 
 
 ----------------------------------------------------------------
@@ -84,9 +89,10 @@ genInstance (PbMessage name fields) = do
                ]
            ]
     -- Instance for 'Protobuf' (serialization/deserialization)
-    deser <- lift $ deserializeDecl name fields
+    deser <- lift $ deserializeDecl  name fields
+    ser   <- lift $ serializtionDecl name fields
     tell [ InstanceD [] (ConT ''Protobuf `AppT` (qstrLit name))
-             [ ValD (VarP 'serialize)    (NormalB $ VarE 'undefined) []
+             [ ValD (VarP 'serialize)    (NormalB $ ser  ) []
              , ValD (VarP 'getMessageST) (NormalB $ deser) []
              ]
          ]
@@ -107,7 +113,7 @@ genInstance (PbEnum name fields) = execWriterT $ do
   let exprTo = do
         a <- newName "a"
         lamE [varP a] $ caseE (varE a) $
-          [ match (litP (integerL i)) (normalB $ conE 'Just `appE`conE (mkName nm)) [] 
+          [ match (litP (integerL i)) (normalB $ conE 'Just `appE`conE (mkName nm)) []
           | (i,nm) <- fields
           ]++[match wildP (normalB $ conE 'Nothing) []]
   tellD [d| instance PbEnum (Message $(return (qstrLit name))) where
@@ -124,6 +130,28 @@ getterTH nTot n = do
   lamE
     [ if i == n then varP nm else wildP | i <- take nTot [0..]]
     (varE nm)
+
+-- Declaration of serialization function.
+serializtionDecl :: QName -> [PbField] -> Q Exp
+serializtionDecl nm fields
+  = [| flip inspect (Fun $expr) |]
+  where
+    expr = do
+      names <- sequence [newName "a" | _ <- fields]
+      let res = doE [noBindS $ serielizeFld nm fld | (nm,fld) <- zip names fields ]
+      lamE [varP a | a <- names] res
+    serielizeFld a (PbField Required ty _ tag _) =
+      [| put (WireTag $(TH.lift tag) $(TH.lift (getTyTag ty))) >> $(varE (fieldWriter ty)) $(varE a) |]
+    serielizeFld a (PbField Optional ty _ tag _) =
+      [| case $(varE a) of
+          Just x  -> put (WireTag $(TH.lift tag) $(TH.lift (getTyTag ty))) >> $(varE (fieldWriter ty)) x
+          Nothing -> return ()
+       |]
+    serielizeFld a (PbField Repeated ty _ tag opts) =
+      case [() | OptPacked <- opts] of
+        []  -> [| forM_ $(varE a) $ \x -> put (WireTag $(TH.lift tag) $(TH.lift (getTyTag ty))) >> $(varE (fieldWriter ty)) x |]
+        [_] -> [| put (WireTag $(TH.lift tag) 2) >> putPacked $(varE (fieldWriter ty)) $(varE a) |]
+        _   -> error "Internal error"
 
 -- Declaration of deserialization function. General layout
 --
@@ -161,7 +189,7 @@ emptyVec fields = do
     , [noBindS [| return $(varE hvec) |]]
     ]
 
-  
+
 -- Function for updating single record
 updateDecl :: Name -> [(Integer, PbField)] -> Q Dec
 updateDecl funNm fields = do
@@ -180,7 +208,7 @@ updateDecl funNm fields = do
 updateClause :: (Integer, PbField) -> Q [Clause]
 updateClause (i,(PbField modif ty _ tag opts)) = do
   msg <- newName "msg"
-  -- Generate 
+  -- Generate
   let updater =
         case modif of
           Required -> varE 'writeRequired
@@ -272,6 +300,26 @@ fieldParser (TyMessage _)       = undefined
 fieldParser (TyEnum    _)       = undefined
 
 
+-- Name parser function for the given type
+fieldWriter :: PbType -> Name
+fieldWriter (TyPrim PbDouble)   = 'putFloat64le
+fieldWriter (TyPrim PbFloat)    = 'putFloat32le
+fieldWriter (TyPrim PbInt32)    = 'putVarInt32
+fieldWriter (TyPrim PbInt64)    = 'putVarInt64
+fieldWriter (TyPrim PbUInt32)   = 'putVarWord32
+fieldWriter (TyPrim PbUInt64)   = 'putVarWord64
+fieldWriter (TyPrim PbSInt32)   = 'putZigzag32
+fieldWriter (TyPrim PbSInt64)   = 'putZigzag64
+fieldWriter (TyPrim PbFixed32)  = 'putWord32le
+fieldWriter (TyPrim PbFixed64)  = 'putWord64le
+fieldWriter (TyPrim PbSFixed32) = 'putInt32le
+fieldWriter (TyPrim PbSFixed64) = 'putInt64le
+fieldWriter (TyPrim PbBool)     = 'putVarBool
+fieldWriter (TyPrim PbString)   = 'putPbString
+fieldWriter (TyPrim PbBytes)    = 'putPbBytestring
+-- Custom types
+fieldWriter (TyMessage _)       = undefined
+fieldWriter (TyEnum    _)       = undefined
 
 ----------------------------------------------------------------
 -- TH helpers
