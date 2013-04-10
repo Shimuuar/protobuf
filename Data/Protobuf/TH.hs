@@ -149,9 +149,9 @@ emptyVec fields = do
   hvec <- newName "hvec"
   doE $ concat
     [ [ bindS (varP hvec) [| newMutableHVec |] ]
-    , map noBindS $ flip concatMap (zip [0..] fields) $ \(i, PbField mod name ty _ opts) ->
+    , map noBindS $ flip concatMap (zip [0..] fields) $ \(i, PbField modif name ty _ opts) ->
        let n = [| sing :: Sing $(litT (numTyLit i)) |]
-       in case mod of
+       in case modif of
           Required -> []
           Repeated -> [ [| writeMutableHVec $(varE hvec) $n $([| Seq.empty |]) |] ]
           Optional -> case [ o | OptDefault o <- opts ] of
@@ -168,6 +168,7 @@ emptyVec fields = do
 
   
 -- Function for updating single record
+updateDecl :: Name -> [(Integer, PbField)] -> Q Dec
 updateDecl funNm fields = do
   -- Primary clauses
   cls <- mapM updateClause fields
@@ -177,11 +178,11 @@ updateDecl funNm fields = do
     msg <- newName "msg"
     [varP wt, varP msg]
       $== [| skipUnknownField $(varE wt) >> return $(varE msg) |]
-
   --
   return $ FunD funNm (concat cls ++ [fallback])
 
 -- Update clause for single field
+updateClause :: (Integer, PbField) -> Q [Clause]
 updateClause (i,(PbField modif ty _ tag opts)) = do
   msg <- newName "msg"
   -- Generate 
