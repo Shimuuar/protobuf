@@ -67,7 +67,7 @@ genInstance (PbMessage name fields) = do
     let msgNm = return $ qstrLit name
     tellD1 $ newtypeInstD (return []) ''Message [msgNm]
               (normalC con [return (NotStrict, ConT ''HVec `AppT` fieldTypes)])
-              [''Show]
+              []
     -- HVector instance
     do v <- lift $ newName "v"
        f <- lift $ newName "f"
@@ -146,7 +146,7 @@ serializtionDecl nm fields
       [| putOptional (\x -> put (WireTag $(TH.lift tag) $(TH.lift (getTyTag ty))) >> $(varE (fieldWriter ty)) x) $(varE a) |]
     serielizeFld a (PbField Repeated ty _ tag opts) =
       case [() | OptPacked <- opts] of
-        []  -> [| forM_ $(varE a) $ \x -> put (WireTag $(TH.lift tag) $(TH.lift (getTyTag ty))) >> $(varE (fieldWriter ty)) x |]
+        []  -> [| F.forM_ $(varE a) $ \x -> put (WireTag $(TH.lift tag) $(TH.lift (getTyTag ty))) >> $(varE (fieldWriter ty)) x |]
         [_] -> [| put (WireTag $(TH.lift tag) 2) >> putPacked $(varE (fieldWriter ty)) $(varE a) |]
         _   -> error "Internal error"
 
@@ -293,8 +293,8 @@ fieldParser (TyPrim PbBool)     = 'getVarBool
 fieldParser (TyPrim PbString)   = 'getPbString
 fieldParser (TyPrim PbBytes)    = 'getPbBytestring
 -- Custom types
-fieldParser (TyMessage _)       = undefined
-fieldParser (TyEnum    _)       = undefined
+fieldParser (TyMessage _)       = 'getMessage
+fieldParser (TyEnum    _)       = 'getPbEnum
 
 
 -- Name parser function for the given type
@@ -315,8 +315,8 @@ fieldWriter (TyPrim PbBool)     = 'putVarBool
 fieldWriter (TyPrim PbString)   = 'putPbString
 fieldWriter (TyPrim PbBytes)    = 'putPbBytestring
 -- Custom types
-fieldWriter (TyMessage _)       = undefined
-fieldWriter (TyEnum    _)       = undefined
+fieldWriter (TyMessage _)       = 'serialize
+fieldWriter (TyEnum    _)       = 'putPbEnum
 
 ----------------------------------------------------------------
 -- TH helpers
