@@ -68,6 +68,11 @@ genInstance (PbMessage name fields) = do
     tellD1 $ newtypeInstD (return []) ''Message [msgNm]
               (normalC con [return (NotStrict, ConT ''HVec `AppT` fieldTypes)])
               []
+    do x <- lift $ newName "x"
+       tellD1 $ instanceD (return []) [t| Show (Message $(return (qstrLit name))) |]
+         [ varP 'show $= lamE [conP con [varP x]]
+                              [| $(TH.lift (nameBase con++" ")) ++ show $(varE x) |]
+         ]
     -- HVector instance
     do v <- lift $ newName "v"
        f <- lift $ newName "f"
