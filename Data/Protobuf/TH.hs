@@ -298,7 +298,7 @@ fieldParser (TyPrim PbBool)     = 'getVarBool
 fieldParser (TyPrim PbString)   = 'getPbString
 fieldParser (TyPrim PbBytes)    = 'getPbBytestring
 -- Custom types
-fieldParser (TyMessage _)       = 'getMessage
+fieldParser (TyMessage _)       = 'getDelimited
 fieldParser (TyEnum    _)       = 'getPbEnum
 
 

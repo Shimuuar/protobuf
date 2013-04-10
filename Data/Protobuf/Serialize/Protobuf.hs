@@ -15,6 +15,7 @@ module Data.Protobuf.Serialize.Protobuf (
   , getPbBytestring
   , putPbBytestring
   , putOptional
+  , getDelimited
   , getPbEnum
   , putPbEnum
     -- * Combinators for the mutable accumulator
@@ -138,6 +139,11 @@ putOptional :: (a -> Put) -> Maybe a -> Put
 putOptional putter (Just x) = putter x
 putOptional _      Nothing  = return ()
 {-# INLINE putOptional #-}
+
+getDelimited :: Protobuf m => Get (Message m)
+getDelimited = do
+  n <- getVarInt
+  isolate n getMessage
 
 getPbEnum :: PbEnum m => Get m
 getPbEnum = do
