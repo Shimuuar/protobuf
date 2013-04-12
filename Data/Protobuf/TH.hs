@@ -12,7 +12,6 @@ import Control.Monad
 import Control.Monad.Writer
 import Data.Int
 import Data.Word
-import Data.Maybe      (fromMaybe)
 import Data.List       (intercalate)
 import Data.ByteString (ByteString)
 import Data.Sequence   (Seq)
@@ -24,7 +23,8 @@ import Language.Haskell.TH.Quote
 import qualified Language.Haskell.TH.Syntax as TH
 import GHC.TypeLits
 
-import Data.Vector.HFixed (HVector(..),HVec,Fun(..),newMutableHVec,writeMutableHVec,element)
+import Data.Vector.HFixed      (HVector(..),Fun(..),element)
+import Data.Vector.HFixed.HVec (HVec,newMutableHVec,writeMutableHVec)
 
 import Data.Protobuf
 import Data.Protobuf.API
@@ -153,7 +153,7 @@ serializtionDecl nm fields
   where
     expr = do
       names <- sequence [newName "a" | _ <- fields]
-      let res = doE [noBindS $ serielizeFld nm fld | (nm,fld) <- zip names fields ]
+      let res = doE [noBindS $ serielizeFld n fld | (n,fld) <- zip names fields ]
       lamE [varP a | a <- names] res
     serielizeFld a (PbField Required ty _ tag _) =
       [| put (WireTag $(TH.lift tag) $(TH.lift (getTyTag ty))) >> $(varE (fieldWriter ty)) $(varE a) |]

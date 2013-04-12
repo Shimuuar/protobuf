@@ -28,7 +28,6 @@ module Data.Protobuf.Serialize.Protobuf (
 
 import Control.Applicative
 import Control.Monad
-import Control.Monad.ST
 import Data.Bits
 import Data.ByteString          (ByteString)
 import qualified Data.ByteString as BS
@@ -37,7 +36,8 @@ import Data.Protobuf.Serialize.VarInt
 import qualified Data.Sequence as Seq
 import           Data.Sequence   (Seq,(|>),(><))
 import qualified Data.Foldable as F
-import qualified Data.Vector.HFixed as H
+import qualified Data.Vector.HFixed      as H
+import qualified Data.Vector.HFixed.HVec as H
 import GHC.TypeLits
 
 

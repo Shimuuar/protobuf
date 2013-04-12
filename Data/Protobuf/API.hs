@@ -44,12 +44,14 @@ module Data.Protobuf.API (
   , freezeMutableMsg
   ) where
 
-import Control.Monad.ST   (ST,runST)
+import Control.Monad.ST        (ST,runST)
 import Data.STRef
-import Data.Serialize     (Get,Put)
-import Data.ByteString    (ByteString)
-import Data.Vector.HFixed (HVector,Elems,Fun,MutableHVec)
-import qualified Data.Vector.HFixed as H
+import Data.Serialize          (Get,Put)
+import Data.ByteString         (ByteString)
+import Data.Vector.HFixed      (HVector,Elems,Fun)
+import Data.Vector.HFixed.HVec (MutableHVec)
+import qualified Data.Vector.HFixed      as H
+import qualified Data.Vector.HFixed.HVec as H
 import GHC.TypeLits
 
 
