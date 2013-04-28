@@ -4,9 +4,7 @@
 {-# LANGUAGE DeriveDataTypeable    #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE Rank2Types #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE Rank2Types            #-}
 -- |
 -- API for working with protobuf messages. They are encoded at the
 -- type level
@@ -40,15 +38,18 @@ module Data.Protobuf.API (
     -- * Serialization
   , Protobuf(..)
   , getMessage
+  , decodeMessage
+  , decodeMessage_
+    -- * Helpers
   , MutableMsg(..)
   , freezeMutableMsg
   ) where
 
 import Control.Monad.ST        (ST,runST)
 import Data.STRef
-import Data.Serialize          (Get,Put)
+import Data.Serialize          (Get,Put,runGet)
 import Data.ByteString         (ByteString)
-import Data.Vector.HFixed      (HVector,Elems,Fun)
+import Data.Vector.HFixed      (HVector,Elems)
 import Data.Vector.HFixed.HVec (MutableHVec)
 import qualified Data.Vector.HFixed      as H
 import qualified Data.Vector.HFixed.HVec as H
@@ -99,17 +100,6 @@ class Field (msg :: Symbol) (fld :: Symbol) where
 -- Parsing
 ----------------------------------------------------------------
 
-
-data MutableMsg (msg :: Symbol) =
-  MutableMsg 
-  (forall s. ST s (MutableHVec s (FieldTypes msg)))
-  ()
-  -- (ST s (STRef s Int))
-
-freezeMutableMsg :: Protobuf msg => MutableMsg msg -> Get (Message msg)
-freezeMutableMsg (MutableMsg marr _)
-  = return $ H.convert $ runST $ H.unsafeFreezeHVec =<< marr
-
 -- | Data type is protocol buffer object.  This type class provide
 --   serialization and deserialization. Access to fields is provided
 --   by 'Field' type class.
@@ -122,6 +112,30 @@ class ( HVector (Message msg)
   -- | Encoder for the message
   serialize :: Message msg -> Put
 
+-- | Decode protobuf message.
 getMessage :: Protobuf msg => Get (Message msg)
 getMessage = do
   freezeMutableMsg =<< getMessageST
+
+-- | Decode protobuf message from bytestring
+decodeMessage :: Protobuf msg => ByteString -> Either String (Message msg)
+decodeMessage bs = runGet getMessage bs
+
+-- | Decode protobuf message from bytestring. Throws error if decoding
+--  failed.
+decodeMessage_ :: Protobuf msg => ByteString -> Message msg
+decodeMessage_
+  = either error id . decodeMessage
+
+
+-- | Mutable version of message it's used internally during message
+--   decoding.
+data MutableMsg (msg :: Symbol) =
+  MutableMsg
+  (forall s. ST s (MutableHVec s (FieldTypes msg)))
+  ()
+  -- (ST s (STRef s Int))
+
+freezeMutableMsg :: Protobuf msg => MutableMsg msg -> Get (Message msg)
+freezeMutableMsg (MutableMsg marr _)
+  = return $ H.convert $ runST $ H.unsafeFreezeHVec =<< marr
