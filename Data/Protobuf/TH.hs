@@ -75,31 +75,40 @@ genInstance :: PbDatatype -> Q [Dec]
 genInstance (PbMessage name fields) = do
   let tyFields   = map findType fields
       fieldTypes = makeTyList $ map snd tyFields
+      qualName   = unqualify name
       msgNm      = return $ qstrLit name
   execWriterT $ do
-    -- Generate name for data constructor of type
-    con <- lift $ newName $ "Message_" ++ unqualifyWith '_' name
-    -- Data instance for message
-    tellD1 $ newtypeInstD (return []) ''Message [msgNm]
-              (normalC con [return (NotStrict, ConT ''HVec `AppT` fieldTypes)])
-              []
-    -- Show instance for message
-    tellD $ do
-      x <- newName "x"
-      [d| instance Show (Message $msgNm) where
-            show = $(lamE [conP con [varP x]]
-                          [| $(TH.lift (nameBase con++" ")) ++ show $(varE x) |])
-       |]
-    -- HVector instance for message
-    do v <- lift $ newName "v"
-       f <- lift $ newName "f"
-       tellD
-         [d| instance HVector (Message $msgNm) where
-               type Elems (Message $msgNm) = FieldTypes $msgNm
-               construct = $([| fmap $(conE con) construct |])
-               inspect   = $(lamE [conP con [varP v], varP f]
-                                  [| inspect $(varE v) $(varE f) |])
-           |]
+    -- First we want to check whether data instance is already defined
+    -- by user. If so data type and Show/HVector instances will not be
+    FamilyI _ instances  <- lift $ reify ''Message
+    let defined = not $ null $
+          [() | DataInstD    _ _ [LitT (StrTyLit s)] _ _ <- instances, s == qualName] ++
+          [() | NewtypeInstD _ _ [LitT (StrTyLit s)] _ _ <- instances, s == qualName]
+    unless defined $ do
+      -- generated Generate name for data constructor of type
+      con <- lift $ newName $ "Message_" ++ unqualifyWith '_' name
+      -- Data instance for message
+      tellD1 $ newtypeInstD (return []) ''Message [msgNm]
+                 (normalC con [return (NotStrict, ConT ''HVec `AppT` fieldTypes)])
+                 []
+      -- Show instance for message
+      tellD $ do
+        x <- newName "x"
+        [d| instance Show (Message $msgNm) where
+              show = $(lamE [conP con [varP x]]
+                            [| $(TH.lift (nameBase con++" ")) ++ show $(varE x) |])
+         |]
+      -- HVector instance for message
+      do v <- lift $ newName "v"
+         f <- lift $ newName "f"
+         tellD
+           [d| instance HVector (Message $msgNm) where
+                 type Elems (Message $msgNm) = FieldTypes $msgNm
+                 construct = $([| fmap $(conE con) construct |])
+                 inspect   = $(lamE [conP con [varP v], varP f]
+                                    [| inspect $(varE v) $(varE f) |])
+             |]
+
     -- Type instance for 'FieldTypes'
     tellD1 $
       tySynInstD ''FieldTypes [msgNm] (return fieldTypes)
@@ -112,7 +121,7 @@ genInstance (PbMessage name fields) = do
       tellD1 $ do
         instanceD (return []) (conT ''Field `appT` msgNm `appT` return (strLit fld))
           [ tySynInstD ''FieldTy [msgNm, return (strLit fld)] (return ty)
-          , varP 'field $= [| const $ element $([|(sing :: Sing $(litT (numTyLit i)))|])  |]
+          , varP 'field $= [| \_ -> element $(singNat i) |]
           ]
     -- Instance for 'Protobuf' (serialization/deserialization)
     --
@@ -161,10 +170,12 @@ serializtionDecl :: QName -> [PbField] -> Q Exp
 serializtionDecl nm fields
   = [| flip inspect (Fun $expr) |]
   where
+    -- Function body for serialization
     expr = do
       names <- sequence [newName "a" | _ <- fields]
       let res = doE [noBindS $ serielizeFld n fld | (n,fld) <- zip names fields ]
       lamE [varP a | a <- names] res
+    -- Serialize individual fields
     serielizeFld a (PbField Required ty _ tag _) =
       [| put (WireTag $(TH.lift tag) $(TH.lift (getTyTag ty))) >> $(varE (fieldWriter ty)) $(varE a) |]
     serielizeFld a (PbField Optional ty _ tag _) =
@@ -195,7 +206,7 @@ emptyVec fields = do
   doE $ concat
     [ [ bindS (varP hvec) [| newMutableHVec |] ]
     , map noBindS $ flip concatMap (zip [0..] fields) $ \(i, PbField modif name ty _ opts) ->
-       let n = [| sing :: Sing $(litT (numTyLit i)) |]
+       let n = singNat i
        in case modif of
           Required -> []
           Repeated -> [ [| writeMutableHVec $(varE hvec) $n $([| Seq.empty |]) |] ]
@@ -240,7 +251,7 @@ updateClause (i,(PbField modif ty _ tag opts)) = do
             [_] -> varE 'writeRepeatedPacked
             _   -> error "Internal error"
       updExpr = [| $updater
-                      (sing :: Sing $(litT (numTyLit i)))
+                      $(singNat i)
                       $(varE (fieldParser ty))
                       $(varE msg)
                  |]
@@ -347,6 +358,9 @@ fieldWriter (TyEnum    _)       = 'putPbEnum
 -- TH helpers
 ----------------------------------------------------------------
 
+singNat :: Integer -> ExpQ
+singNat i = [|sing :: Sing $(litT (numTyLit i))|]
+
 strLit :: String -> Type
 strLit = LitT . StrTyLit
 
@@ -377,9 +391,6 @@ pats $== expr = clause pats (normalB expr) []
 -- Value declaration
 ($=) :: PatQ -> ExpQ -> DecQ
 pat $= expr = valD pat (normalB expr) []
-
-app :: [ExpQ] -> ExpQ
-app = foldl1 appE
 
 
 
