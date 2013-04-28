@@ -1,27 +1,44 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 -- |
 -- Abstract syntax tree for protobuf file
-module Data.Protobuf.AST where
+--
+-- Message and enum names are represented as their name and path to
+-- the name in global namespace.
+module Data.Protobuf.Internal.AST (
+    -- * Protobuf AST
+    Protobuf(..)
+    -- ** Enums
+  , EnumDecl(..)
+  , EnumField(..)
+    -- ** Messages
+  , Message(..)
+  , MessageField(..)
+  , Extension(..)
+  , Field(..)
+    -- * Basic types
+  , QIdentifier(..)
+  , FieldTag(..)
+    -- * Protobuf types
+  , Modifier(..)
+  , Type(..)
+  , PrimType(..)
+  , TypeLabel(..)
+  , typeLabel
+    -- * Options
+  , Option(..)
+  , OptionVal(..)
+  , lookupOption
+  , lookupOptionStr
+  ) where
 
-import Data.List (intercalate)
 import Data.Data
+import Data.Protobuf.Internal.Names
 
--- | Protocol buffer file. 
---   Parameter 'n' stands for namespace type. Since new namespaces are introduced in file 
-data ProtobufFile n
-  = ProtobufFile [Protobuf] [Identifier TagType] n
-    deriving (Show,Typeable,Data)
-
--- | Newtype wrapper which is used to ditinguish between package
---   namespace and global namespace
-newtype Global a = Global a
-                 deriving (Show,Typeable,Data)
-
--- | top level declarations
+-- | Top level declarations
 data Protobuf =
     Import      String
     -- ^ Import declaration
-  | Package     (Qualified TagType (Identifier TagType))
+  | Package     (QualifiedId TagType)
     -- ^ Specify package for module
   | TopMessage  Message
     -- ^ Message type
@@ -33,11 +50,14 @@ data Protobuf =
     -- ^ Top level option
   deriving (Show,Typeable,Data)
 
--- | Enumeration declaration
+-- | Enumeration declaration. Parameters are
+--
+--   * Enum name
+--
+--   * Fields of enumeration
 data EnumDecl = EnumDecl 
-                (Identifier TagType) -- Enum name
-                [EnumField]          -- Enum fields
-                [Identifier TagType] -- Location in namespace
+                (QualifiedId TagType)
+                [EnumField]
                 deriving (Show,Typeable,Data)
 
 -- | Enumeration field
@@ -47,10 +67,13 @@ data EnumField
   deriving (Show,Typeable,Data)
 
 -- | Message declaration
+--
+--   * Message name
+--
+--   * Message fields
 data Message = Message 
-               (Identifier TagType) -- Message name
-               [MessageField]       -- Message fiedls
-               [Identifier TagType] -- Location in namespace (message name included)
+               (QualifiedId TagType)
+               [MessageField]
                deriving (Show,Typeable,Data)
 
 -- | Single field in message body. Note that groups are not supported.
@@ -84,44 +107,15 @@ data Field = Field Modifier Type (Identifier TagField) FieldTag [Option]
 -- Basic types
 ----------------------------------------------------------------
 
--- | Qualified name
-data Qualified t a = Qualified [Identifier t] a
-                     deriving (Show,Eq,Ord,Typeable,Data)
-
-addQualifier :: Identifier t -> Qualified t a -> Qualified t a
-addQualifier q (Qualified qs x) = Qualified (q:qs) x
-
-addQualList :: [Identifier t] -> Qualified t a -> Qualified t a
-addQualList q (Qualified qs x) = Qualified (q ++ qs) x
-
-
--- | Tag for data types
-data TagType   = TagType    deriving (Typeable,Data)
-data TagField  = TagField   deriving (Typeable,Data)
-data TagOption = TagOption  deriving (Typeable,Data)
-
-castIdent :: Identifier t -> Identifier q
-castIdent = Identifier . identifier
-
-castQIdent :: Qualified t (Identifier t) -> Qualified q (Identifier q)
-castQIdent (Qualified xs x) = Qualified (map castIdent xs) (castIdent x)
-
--- | Simple unqualified identifier.
-newtype Identifier t = Identifier { identifier :: String }
-                   deriving (Typeable,Data,Eq,Ord)
-instance Show (Identifier t) where
-  show = show . identifier
-
-
--- | General form of identifier
+-- | Data type identifier
 data QIdentifier 
-  = QualId     [Identifier TagType] (Identifier TagType) -- ^ Qualified identifier
-  | FullQualId [Identifier TagType] (Identifier TagType) -- ^ Fully qualified identifier
+  = QualId     (QualifiedId TagType) -- ^ Qualified identifier
+  | FullQualId (QualifiedId TagType) -- ^ Fully qualified identifier
   deriving (Typeable,Data)
 
 instance Show QIdentifier where
-  show (QualId     ns n) = show $ intercalate "." $ map identifier (ns ++ [n])
-  show (FullQualId ns n) = show $ ('.' :) $ intercalate "." $ map identifier (ns ++ [n])
+  show (QualId     n) = show n
+  show (FullQualId n) = '.' : show n
 
 
 -- | Field tag
@@ -132,7 +126,8 @@ newtype FieldTag = FieldTag Integer
 data Modifier = Required
               | Optional
               | Repeated
-              deriving (Show,Typeable,Data)
+              deriving (Show,Eq,Typeable,Data)
+
 -- | Type of the field
 data Type
   = SomeType QIdentifier        -- ^ Identifier of unknown type
@@ -158,12 +153,40 @@ data PrimType
   | PbBool     -- ^ Boolean
   | PbString   -- ^ UTF8 encoded string
   | PbBytes    -- ^ Byte sequence
-  deriving (Show,Typeable,Data)
+  deriving (Show,Eq,Typeable,Data)
 
-data Option = Option (Qualified TagOption (Identifier TagOption)) OptionVal
+-- | Type label which is used in encoding
+data TypeLabel
+  = LAB_VARINT
+  | LAB_FIXED64
+  | LAB_LENDELIM
+  | LAB_STARTGR
+  | LAB_ENDGR
+  | LAB_FIXED32
+  deriving (Show,Eq,Enum,Typeable,Data)
+
+typeLabel :: PrimType -> TypeLabel
+typeLabel PbDouble   = LAB_FIXED64
+typeLabel PbFloat    = LAB_FIXED32
+typeLabel PbInt32    = LAB_VARINT
+typeLabel PbInt64    = LAB_VARINT
+typeLabel PbUInt32   = LAB_VARINT
+typeLabel PbUInt64   = LAB_VARINT
+typeLabel PbSInt32   = LAB_VARINT
+typeLabel PbSInt64   = LAB_VARINT
+typeLabel PbFixed32  = LAB_FIXED32
+typeLabel PbFixed64  = LAB_FIXED64
+typeLabel PbSFixed32 = LAB_FIXED32
+typeLabel PbSFixed64 = LAB_FIXED64
+typeLabel PbBool     = LAB_VARINT
+typeLabel PbString   = LAB_LENDELIM
+typeLabel PbBytes    = LAB_LENDELIM
+
+
+data Option = Option (QualifiedId TagOption) OptionVal
             deriving (Show,Typeable,Data)
 
-lookupOption :: Qualified TagOption (Identifier TagOption) -> [Option] -> Maybe OptionVal
+lookupOption :: QualifiedId TagOption -> [Option] -> Maybe OptionVal
 lookupOption _ [] = Nothing
 lookupOption q (Option qi v : opts)
   | q == qi   = Just v
@@ -177,5 +200,4 @@ data OptionVal
   | OptBool   Bool
   | OptInt    Integer
   | OptReal   Rational
-  deriving (Show,Typeable,Data)
-
+  deriving (Show,Eq,Typeable,Data)

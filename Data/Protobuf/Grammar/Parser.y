@@ -4,7 +4,9 @@ module Data.Protobuf.Grammar.Parser (
   ) where
 
 import Data.Protobuf.Grammar.Lexer
-import Data.Protobuf.AST
+import Data.Protobuf.Internal.AST
+import Data.Protobuf.Internal.Names
+
 }
 
 %name      parseProtobuf Protobuf
@@ -59,14 +61,11 @@ import Data.Protobuf.AST
 
 %%
 
-Protobuf :: { ProtobufFile () }
-  : ProtobufDecls       { ProtobufFile $1 [] () }
-
 -- Complete protobuf file
-ProtobufDecls
-  : {- empty -}               { [] }
-  | Declaration ProtobufDecls { $1 : $2 }
-  | ";"         ProtobufDecls { $2 }
+Protobuf
+  : {- empty -}          { [] }
+  | Declaration Protobuf { $1 : $2 }
+  | ";"         Protobuf { $2 }
 
 -- Top level declaration
 Declaration
@@ -81,7 +80,7 @@ Import
   : "import" "strlit" ";"     { Import $2 }
 -- Message declaration
 Message
-  : "message" Ident "{" MessageFields "}" { Message (castIdent $2) $4 [] }
+  : "message" Ident "{" MessageFields "}" { Message (unqualified (castIdent $2)) $4 }
 MessageFields
   : {- empty -}                { []      }
   | MessageField MessageFields { $1 : $2 }
@@ -92,7 +91,7 @@ MessageField
     -- FIXME: extend
     -- FIXME: extension
   | Option    { MsgOption    $1 }
-Field -- FIXME: field options
+Field
   : Modifier Typename Ident "=" "int" ";"                   { Field $1 $2 (castIdent $3) (FieldTag $5) [] }
   | Modifier Typename Ident "=" "int" "[" FieldOpts "]" ";" { Field $1 $2 (castIdent $3) (FieldTag $5) $7 }
 FieldOpts 
@@ -106,7 +105,7 @@ Modifier
 
 -- Enumeration
 Enum
-  : "enum" Ident "{" EnumFields "}"   { EnumDecl (castIdent $2) $4 [] }
+  : "enum" Ident "{" EnumFields "}"   { EnumDecl (unqualified (castIdent $2)) $4 }
 EnumFields
   : EnumField            { $1 : [] }
   | EnumField EnumFields { $1 : $2 }
@@ -139,17 +138,16 @@ Ident :: { Identifier () }
 -- Identifier which could be fully qualified
 FullQualId :: { QIdentifier }
   : "." QualifiedId  { case $2 of 
-                         QualId q n -> FullQualId q n 
-                         _          -> error "Impossible happened: FullQualId"
+                         QualId q -> FullQualId q
+                         _        -> error "Impossible happened: FullQualId"
                      }
   | QualifiedId      { $1 }
 -- Identifier which couldn't be full qualified
 QualifiedId :: { QIdentifier }
-  : QIdent           { case castQIdent $1 of 
-                         Qualified xs x -> QualId xs x
+  : QIdent           { QualId $ castQIdent $1
                      }
 -- Worker for qulified identifiers
-QIdent :: { Qualified () (Identifier ()) }
+QIdent :: { QualifiedId () }
   : Ident            { Qualified [] $1 }
   | Ident "." QIdent { case $3 of
                          Qualified qs x -> Qualified ($1 : qs) x 
@@ -180,5 +178,11 @@ BuiltinType
 
 parseError :: [Token] -> a
 parseError = error . ("ERROR: " ++) . show
+
+castIdent :: Identifier t -> Identifier q
+castIdent = Identifier . identifier
+
+castQIdent :: QualifiedId t -> QualifiedId q
+castQIdent (Qualified xs x) = Qualified (map castIdent xs) (castIdent x)
 
 }
