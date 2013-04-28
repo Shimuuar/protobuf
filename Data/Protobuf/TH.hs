@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeFamilies          #-}
 -- |
@@ -73,37 +75,48 @@ genInstance :: PbDatatype -> Q [Dec]
 genInstance (PbMessage name fields) = do
   let tyFields   = map findType fields
       fieldTypes = makeTyList $ map snd tyFields
+      msgNm      = return $ qstrLit name
   execWriterT $ do
-    -- Data instance for 'Message'
+    -- Generate name for data constructor of type
     con <- lift $ newName $ "Message_" ++ unqualifyWith '_' name
-    let msgNm = return $ qstrLit name
+    -- Data instance for message
     tellD1 $ newtypeInstD (return []) ''Message [msgNm]
               (normalC con [return (NotStrict, ConT ''HVec `AppT` fieldTypes)])
               []
-    do x <- lift $ newName "x"
-       tellD1 $ instanceD (return []) [t| Show (Message $(return (qstrLit name))) |]
-         [ varP 'show $= lamE [conP con [varP x]]
-                              [| $(TH.lift (nameBase con++" ")) ++ show $(varE x) |]
-         ]
-    -- HVector instance
+    -- Show instance for message
+    tellD $ do
+      x <- newName "x"
+      [d| instance Show (Message $msgNm) where
+            show = $(lamE [conP con [varP x]]
+                          [| $(TH.lift (nameBase con++" ")) ++ show $(varE x) |])
+       |]
+    -- HVector instance for message
     do v <- lift $ newName "v"
        f <- lift $ newName "f"
        tellD
          [d| instance HVector (Message $msgNm) where
                type Elems (Message $msgNm) = FieldTypes $msgNm
-               construct = $( [| fmap $(conE con) construct |])
+               construct = $([| fmap $(conE con) construct |])
                inspect   = $(lamE [conP con [varP v], varP f]
                                   [| inspect $(varE v) $(varE f) |])
            |]
     -- Type instance for 'FieldTypes'
-    tell [ TySynInstD ''FieldTypes [qstrLit name] $ fieldTypes ]
+    tellD1 $
+      tySynInstD ''FieldTypes [msgNm] (return fieldTypes)
     -- Instance for 'Field' getter/setter
     forM_ (zip [0..] tyFields) $ \(i,(fld,ty)) -> do
-      tellD1 $ instanceD (return []) (conT ''Field `appT` return (qstrLit name) `appT` return (strLit fld))
-        [ tySynInstD ''FieldTy [return (qstrLit name), return (strLit fld)] (return ty)
-        , varP 'field $= [| const $ element $([|(sing :: Sing $(litT (numTyLit i)))|])  |]
-        ]
+      -- NOTE: splices of data declarations could be used there
+      --       because GHC will complaint that type variables in
+      --       instance head and in the type synonym are different.
+      --       See bug #4230 for discussion
+      tellD1 $ do
+        instanceD (return []) (conT ''Field `appT` msgNm `appT` return (strLit fld))
+          [ tySynInstD ''FieldTy [msgNm, return (strLit fld)] (return ty)
+          , varP 'field $= [| const $ element $([|(sing :: Sing $(litT (numTyLit i)))|])  |]
+          ]
     -- Instance for 'Protobuf' (serialization/deserialization)
+    --
+    -- NOTE: same caveat as above about splices apply
     deser <- lift $ deserializeDecl  name fields
     ser   <- lift $ serializtionDecl name fields
     tell [ InstanceD [] (ConT ''Protobuf `AppT` (qstrLit name))
@@ -113,29 +126,26 @@ genInstance (PbMessage name fields) = do
          ]
 -- Generate instances for enums
 genInstance (PbEnum name fields) = execWriterT $ do
+  let msgNm = return $ qstrLit name
   -- Data constructor
-  let constrs =
-        [ NormalC (mkName con) []
-        | (_,con) <- fields ]
-  tell [ DataInstD [] ''Message [qstrLit name] constrs
-         [''Show,''Eq,''Ord]]
+  tellD1 $
+    dataInstD (return []) ''Message [msgNm]
+      [ normalC (mkName con) [] | (_,con) <- fields ]
+      [''Show,''Eq,''Ord]
   -- PbEnum instance
   let exprFrom = do
         a <- newName "a"
         lamE [varP a] $ caseE (varE a)
-          [ match (conP (mkName nm) []) (normalB $ litE (integerL i)) []
-          | (i,nm) <- fields ]
+          [ conP (mkName nm) [] --> TH.lift i | (i,nm) <- fields ]
   let exprTo = do
         a <- newName "a"
         lamE [varP a] $ caseE (varE a) $
-          [ match (litP (integerL i)) (normalB $ conE 'Just `appE`conE (mkName nm)) []
-          | (i,nm) <- fields
-          ]++[match wildP (normalB $ conE 'Nothing) []]
-  tellD [d| instance PbEnum (Message $(return (qstrLit name))) where
+          [ litP (integerL i) --> [| Just $(conE (mkName nm)) |] | (i,nm) <- fields ]++
+          [ wildP             --> [| Nothing |] ]
+  tellD [d| instance PbEnum (Message $msgNm) where
               toPbEnum   = $exprTo
               fromPbEnum = $exprFrom
           |]
-
 
 
 -- Getter function
@@ -355,6 +365,11 @@ makeTyList = foldr (\a ls -> PromotedConsT `AppT` a `AppT` ls) PromotedNilT
 intP :: Integer -> PatQ
 intP = litP . IntegerL
 
+
+-- Shorhand for match inside case expression
+(-->) :: PatQ -> ExpQ -> MatchQ
+pat --> expr = match pat (normalB expr) []
+
 -- Function clause declaration for clause
 ($==) :: [PatQ] -> ExpQ -> ClauseQ
 pats $== expr = clause pats (normalB expr) []
@@ -365,6 +380,8 @@ pat $= expr = valD pat (normalB expr) []
 
 app :: [ExpQ] -> ExpQ
 app = foldl1 appE
+
+
 
 tellD :: Q [Dec] -> WriterT [Dec] Q ()
 tellD = tell <=< lift
