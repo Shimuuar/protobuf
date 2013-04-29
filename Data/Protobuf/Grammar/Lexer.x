@@ -97,11 +97,11 @@ unquote :: String -> String
 unquote = id
 
 -- Simple parser
-si :: (String -> r) -> (AlexPosn,Char,String) -> Int -> Alex r
-si f (_,_,tok) n = return (f $ take n tok)
+si :: (String -> r) -> AlexInput -> Int -> Alex r
+si f (_,_,_,tok) n = return (f $ take n tok)
 
 -- Constant expression
-co :: r -> (AlexPosn,Char,String) -> Int -> Alex r
+co :: r -> AlexInput -> Int -> Alex r
 co x _ _ = return x
 
 -- Parse ocatal number
