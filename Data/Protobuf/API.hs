@@ -38,6 +38,7 @@ module Data.Protobuf.API (
     -- * Serialization
   , Protobuf(..)
   , getMessage
+  , encodeMessage
   , decodeMessage
   , decodeMessage_
     -- * Helpers
@@ -47,7 +48,7 @@ module Data.Protobuf.API (
 
 import Control.Monad.ST        (ST,runST)
 import Data.STRef
-import Data.Serialize          (Get,Put,runGet)
+import Data.Serialize          (Get,Put,runGet,runPut)
 import Data.ByteString         (ByteString)
 import Data.Vector.HFixed      (HVector,Elems)
 import Data.Vector.HFixed.HVec (MutableHVec)
@@ -116,6 +117,11 @@ class ( HVector (Message msg)
 getMessage :: Protobuf msg => Get (Message msg)
 getMessage = do
   freezeMutableMsg =<< getMessageST
+
+
+-- | Encode protobuf message
+encodeMessage :: Protobuf msg => Message msg -> ByteString
+encodeMessage = runPut . serialize
 
 -- | Decode protobuf message from bytestring
 decodeMessage :: Protobuf msg => ByteString -> Either String (Message msg)
