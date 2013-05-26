@@ -119,6 +119,27 @@ genInstance opts (PbMessage name fields) = do
                    inspect   = $(lamE [conP con [varP v], varP f]
                                       [| inspect $(varE v) $(varE f) |])
                |]
+  -- Generate instance for `Message' using haskell records
+  let genMessageRec = do
+        -- Generate data type and derived Show instance
+        con <- lift $ newName $ case name of QName _ s -> s
+        let flds = [return $ (mkName nm,IsStrict,ty) | (nm,ty) <- tyFields]
+        tellD1 $ dataInstD (return []) ''Message [msgNm]
+                   [recC con flds]
+                   [''Show]
+        -- Derive HVector instance
+        xs <- lift $ mapM newName ["x" | _ <- tyFields]
+        f  <- lift $ newName "f"
+        tellD
+          [d| instance HVector (Message $msgNm) where
+                type Elems (Message $msgNm) = FieldTypes $msgNm
+                construct = Fun $(conE con)
+                inspect   = $( lamE [ conP con  (map varP xs)
+                                    , conP 'Fun [varP f]
+                                    ]
+                             $ foldl appE (varE f) (map varE xs)
+                             )
+            |]
   -- Choose which generator to use
   let chooseGenerator = do
         -- First we want to check whether data instance is already defined
@@ -139,15 +160,8 @@ genInstance opts (PbMessage name fields) = do
     toGen <- chooseGenerator
     case toGen of
       MessageHVec   -> genMessageHVec
-      MessageRec    -> error "Unimplemented"
+      MessageRec    -> genMessageRec
       MessageExists -> return ()
-    -- by user. If so data type and Show/HVector instances will not be
-    FamilyI _ instances  <- lift $ reify ''Message
-    let defined = not $ null $
-          [() | DataInstD    _ _ [LitT (StrTyLit s)] _ _ <- instances, s == qualName] ++
-          [() | NewtypeInstD _ _ [LitT (StrTyLit s)] _ _ <- instances, s == qualName]
-    unless defined $ do
-      genMessageHVec
     -- Type instance for 'FieldTypes'
     tellD1 $
       tySynInstD ''FieldTypes [msgNm] (return fieldTypes)
