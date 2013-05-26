@@ -91,7 +91,7 @@ genInstance (PbMessage name fields) = do
       tySynInstD ''FieldTypes [msgNm] (return fieldTypes)
     -- Instance for 'Field' getter/setter
     forM_ (zip [0..] tyFields) $ \(i,(fld,ty)) -> do
-      -- NOTE: splices of data declarations could be used there
+      -- NOTE: splices of data declarations couldn't be used there
       --       because GHC will complaint that type variables in
       --       instance head and in the type synonym are different.
       --       See bug #4230 for discussion
@@ -141,7 +141,7 @@ genMessageData name fields = do
       fieldTypes = makeTyList $ map snd tyFields
       qualName   = unqualify name
       msgNm      = return $ qstrLit name
-  -- generatased Generate name for data constructor of type
+  -- Generate name for data constructor
   con <- lift $ newName $ "Message_" ++ unqualifyWith '_' name
   -- Data instance for message
   tellD1 $ newtypeInstD (return []) ''Message [msgNm]
