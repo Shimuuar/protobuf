@@ -125,8 +125,7 @@ genInstance opts (PbMessage name fields) = do
         con <- lift $ newName $ case name of QName _ s -> s
         let flds = [return $ (mkName nm,IsStrict,ty) | (nm,ty) <- tyFields]
         tellD1 $ dataInstD (return []) ''Message [msgNm]
-                   [recC con flds]
-                   [''Show]
+                   [recC con flds] []
         -- Derive HVector instance
         xs <- lift $ mapM newName ["x" | _ <- tyFields]
         f  <- lift $ newName "f"
