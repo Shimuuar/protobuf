@@ -85,30 +85,7 @@ genInstance (PbMessage name fields) = do
           [() | DataInstD    _ _ [LitT (StrTyLit s)] _ _ <- instances, s == qualName] ++
           [() | NewtypeInstD _ _ [LitT (StrTyLit s)] _ _ <- instances, s == qualName]
     unless defined $ do
-      -- generated Generate name for data constructor of type
-      con <- lift $ newName $ "Message_" ++ unqualifyWith '_' name
-      -- Data instance for message
-      tellD1 $ newtypeInstD (return []) ''Message [msgNm]
-                 (normalC con [return (NotStrict, ConT ''HVec `AppT` fieldTypes)])
-                 []
-      -- Show instance for message
-      tellD $ do
-        x <- newName "x"
-        [d| instance Show (Message $msgNm) where
-              show = $(lamE [conP con [varP x]]
-                            [| $(TH.lift (nameBase con++" ")) ++ show $(varE x) |])
-         |]
-      -- HVector instance for message
-      do v <- lift $ newName "v"
-         f <- lift $ newName "f"
-         tellD
-           [d| instance HVector (Message $msgNm) where
-                 type Elems (Message $msgNm) = FieldTypes $msgNm
-                 construct = $([| fmap $(conE con) construct |])
-                 inspect   = $(lamE [conP con [varP v], varP f]
-                                    [| inspect $(varE v) $(varE f) |])
-             |]
-
+      genMessageData name fields
     -- Type instance for 'FieldTypes'
     tellD1 $
       tySynInstD ''FieldTypes [msgNm] (return fieldTypes)
@@ -155,6 +132,39 @@ genInstance (PbEnum name fields) = execWriterT $ do
               toPbEnum   = $exprTo
               fromPbEnum = $exprFrom
           |]
+
+
+-- Generate Message instance using HVec (defaut)
+genMessageData :: QName -> [PbField] -> WriterT [Dec] Q ()
+genMessageData name fields = do
+  let tyFields   = map findType fields
+      fieldTypes = makeTyList $ map snd tyFields
+      qualName   = unqualify name
+      msgNm      = return $ qstrLit name
+  -- generatased Generate name for data constructor of type
+  con <- lift $ newName $ "Message_" ++ unqualifyWith '_' name
+  -- Data instance for message
+  tellD1 $ newtypeInstD (return []) ''Message [msgNm]
+             (normalC con [return (NotStrict, ConT ''HVec `AppT` fieldTypes)])
+             []
+  -- Show instance for message
+  tellD $ do
+    x <- newName "x"
+    [d| instance Show (Message $msgNm) where
+          show = $(lamE [conP con [varP x]]
+                        [| $(TH.lift (nameBase con++" ")) ++ show $(varE x) |])
+     |]
+  -- HVector instance for message
+  do v <- lift $ newName "v"
+     f <- lift $ newName "f"
+     tellD
+       [d| instance HVector (Message $msgNm) where
+             type Elems (Message $msgNm) = FieldTypes $msgNm
+             construct = $([| fmap $(conE con) construct |])
+             inspect   = $(lamE [conP con [varP v], varP f]
+                                [| inspect $(varE v) $(varE f) |])
+         |]
+
 
 
 -- Getter function
