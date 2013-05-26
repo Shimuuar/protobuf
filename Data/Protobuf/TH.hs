@@ -5,7 +5,10 @@
 -- |
 -- Generation of instances using template haskell
 module Data.Protobuf.TH (
+    -- * Code generation
     generateProtobuf
+  , PbGenOption(..)
+    -- * Lens
   , elm
   ) where
 
@@ -43,18 +46,26 @@ import Data.Serialize
 -- API
 ----------------------------------------------------------------
 
+-- | Options for data generation
+data PbGenOption
+  = MsgRecord String
+  -- ^ Generate instance for Message using ADT not a newtype wrapped
+  -- 'HVec'.
+
+
 -- | Generate instances for the code
-generateProtobuf :: [FilePath]  -- ^ Include path
-                 -> [FilePath]  -- ^ Files to parse
+generateProtobuf :: [PbGenOption]  -- ^ Options for code generation.
+                 -> [FilePath]     -- ^ Include path
+                 -> [FilePath]     -- ^ Files to parse
                  -> Q [Dec]
-generateProtobuf incs fnames = do
+generateProtobuf opts incs fnames = do
   -- Read protobuf files
   messages <- runIO $ loadProtobuf incs fnames
   mapM_ qAddDependentFile fnames
   -- Declare instance for every message
   case messages of
     Left  err -> fail err
-    Right xs  -> concat <$> mapM genInstance xs
+    Right xs  -> concat <$> mapM (genInstance opts) xs
 
 -- | Sugar for the field access
 elm :: QuasiQuoter
@@ -70,15 +81,21 @@ elm = QuasiQuoter
 -- Workers
 ----------------------------------------------------------------
 
+-- Type of message to generate
+data MessageType
+  = MessageHVec   -- Use HVec
+  | MessageRec    -- Generate normal haskell record
+  | MessageExists -- instance exists already do nothing
+
 -- Generate instance for the data type
-genInstance :: PbDatatype -> Q [Dec]
-genInstance (PbMessage name fields) = do
+genInstance :: [PbGenOption] -> PbDatatype -> Q [Dec]
+genInstance opts (PbMessage name fields) = do
   let tyFields   = map findType fields
       fieldTypes = makeTyList $ map snd tyFields
       qualName   = unqualify name
       msgNm      = return $ qstrLit name
   -- Generate instance for `Message' using HVec (default) 
-  let genMessageData = do
+  let genMessageHVec = do
         -- Generate name for data constructor
         con <- lift $ newName $ "Message_" ++ unqualifyWith '_' name
         -- Data instance for message
@@ -102,17 +119,35 @@ genInstance (PbMessage name fields) = do
                    inspect   = $(lamE [conP con [varP v], varP f]
                                       [| inspect $(varE v) $(varE f) |])
                |]
+  -- Choose which generator to use
+  let chooseGenerator = do
+        -- First we want to check whether data instance is already defined
+        -- by user. If so data type and Show/HVector instances will not be
+        FamilyI _ instances  <- lift $ reify ''Message
+        let defined = not $ null $
+              [() | DataInstD    _ _ [LitT (StrTyLit s)] _ _ <- instances, s == qualName] ++
+              [() | NewtypeInstD _ _ [LitT (StrTyLit s)] _ _ <- instances, s == qualName]
+        let useRecs = not $ null [() | MsgRecord nm <- opts, nm == qualName]
+        case () of
+          _| defined   -> return MessageExists
+           | useRecs   -> return MessageRec
+           | otherwise -> return MessageHVec
   ----------------------------------------------------------------
   -- Main body
   execWriterT $ do
-    -- First we want to check whether data instance is already defined
+    -- Generate data type
+    toGen <- chooseGenerator
+    case toGen of
+      MessageHVec   -> genMessageHVec
+      MessageRec    -> error "Unimplemented"
+      MessageExists -> return ()
     -- by user. If so data type and Show/HVector instances will not be
     FamilyI _ instances  <- lift $ reify ''Message
     let defined = not $ null $
           [() | DataInstD    _ _ [LitT (StrTyLit s)] _ _ <- instances, s == qualName] ++
           [() | NewtypeInstD _ _ [LitT (StrTyLit s)] _ _ <- instances, s == qualName]
     unless defined $ do
-      genMessageData
+      genMessageHVec
     -- Type instance for 'FieldTypes'
     tellD1 $
       tySynInstD ''FieldTypes [msgNm] (return fieldTypes)
@@ -138,7 +173,7 @@ genInstance (PbMessage name fields) = do
              ]
          ]
 -- Generate instances for enums
-genInstance (PbEnum name fields) = execWriterT $ do
+genInstance _ (PbEnum name fields) = execWriterT $ do
   let msgNm = return $ qstrLit name
   -- Data constructor
   tellD1 $
