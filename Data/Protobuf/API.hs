@@ -5,6 +5,7 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE Rank2Types            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 -- |
 -- API for working with protobuf messages. They are encoded at the
 -- type level
@@ -52,9 +53,12 @@ import Data.Serialize          (Get,Put,runGet,runPut)
 import Data.ByteString         (ByteString)
 import Data.Vector.HFixed      (HVector,Elems)
 import Data.Vector.HFixed.HVec (MutableHVec)
+import Data.Typeable
 import qualified Data.Vector.HFixed      as H
 import qualified Data.Vector.HFixed.HVec as H
+
 import GHC.TypeLits
+
 
 
 ----------------------------------------------------------------
@@ -95,6 +99,13 @@ class Field (msg :: Symbol) (fld :: Symbol) where
         => Sing fld
         -> (a -> f a)
         -> (Message msg -> f (Message msg))
+
+
+instance SingI msg => Typeable (Message msg) where
+  typeOf _ = mkTyConApp con [ mkTyConApp str []]
+    where
+      con = mkTyCon3 "protobuf" "Data.Protobuf.API" "Message"
+      str = mkTyCon3 "ghc"      "GHC.TypeLits"       (fromSing (sing :: Sing msg))
 
 
 ----------------------------------------------------------------
