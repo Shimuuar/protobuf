@@ -96,8 +96,8 @@ genInstance (PbMessage name fields) = do
       --       instance head and in the type synonym are different.
       --       See bug #4230 for discussion
       tellD1 $ do
-        instanceD (return []) (conT ''Field `appT` msgNm `appT` return (strLit fld))
-          [ tySynInstD ''FieldTy [msgNm, return (strLit fld)] (return ty)
+        instanceD (return []) (conT ''Field `appT` msgNm `appT` strLit fld)
+          [ tySynInstD ''FieldTy [msgNm, strLit fld] (return ty)
           , varP 'field $= [| \_ -> element $(singNat i) |]
           ]
     -- Instance for 'Protobuf' (serialization/deserialization)
@@ -371,11 +371,11 @@ fieldWriter (TyEnum    _)       = 'putPbEnum
 singNat :: Integer -> ExpQ
 singNat i = [|sing :: Sing $(litT (numTyLit i))|]
 
-strLit :: String -> Type
-strLit = LitT . StrTyLit
+strLit :: String -> Q Type
+strLit = return . LitT . StrTyLit
 
 qstrLit :: QName -> Type
-qstrLit = strLit . unqualify
+qstrLit = LitT . StrTyLit . unqualify
 
 unqualify :: QName -> String
 unqualify = unqualifyWith '.'
