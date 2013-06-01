@@ -37,7 +37,7 @@ import Data.Protobuf.Serialize.VarInt
 import qualified Data.Sequence as Seq
 import           Data.Sequence   (Seq,(|>),(><))
 import qualified Data.Foldable as F
-import qualified Data.Vector.Fixed        as F (Arity(..))
+import qualified Data.Vector.Fixed        as F (Arity)
 import qualified Data.Vector.HFixed       as H
 import qualified Data.Vector.HFixed.HVec  as H
 import qualified Data.Vector.HFixed.Class as H (NatIso(..))
@@ -182,7 +182,7 @@ getRecords step new
 
 
 -- | Write required field into accumulator
-writeRequired :: forall n a msg. (H.ValueAt (H.ToIndNat n) (FieldTypes msg) ~ a, F.Arity (H.ToIndNat n))
+writeRequired :: forall n a msg. (H.ValueAt (H.ToPeano n) (FieldTypes msg) ~ a, F.Arity (H.ToPeano n))
               => Sing n
               -> Get a
               -> MutableMsg msg
@@ -190,13 +190,13 @@ writeRequired :: forall n a msg. (H.ValueAt (H.ToIndNat n) (FieldTypes msg) ~ a,
 writeRequired _ getter st = do
   a <- getter
   let go (MutableMsg marr ref) =
-        MutableMsg (marr >>= (\arr -> H.writeMutableHVec arr (undefined :: H.ToIndNat n) a >> return arr))
+        MutableMsg (marr >>= (\arr -> H.writeMutableHVec arr (undefined :: H.ToPeano n) a >> return arr))
                    ref
   return $ go st
 
 -- | Write optional field into accumulator
-writeOptional :: forall n a msg. ( H.ValueAt (H.ToIndNat n) (FieldTypes msg) ~ Maybe a
-                                 , F.Arity (H.ToIndNat n))
+writeOptional :: forall n a msg. ( H.ValueAt (H.ToPeano n) (FieldTypes msg) ~ Maybe a
+                                 , F.Arity (H.ToPeano n))
               => Sing n
               -> Get a
               -> MutableMsg msg
@@ -204,13 +204,13 @@ writeOptional :: forall n a msg. ( H.ValueAt (H.ToIndNat n) (FieldTypes msg) ~ M
 writeOptional _ getter st = do
   a <- getter
   let go (MutableMsg marr ref) =
-        MutableMsg (marr >>= (\arr -> H.writeMutableHVec arr (undefined :: H.ToIndNat n) (Just a) >> return arr))
+        MutableMsg (marr >>= (\arr -> H.writeMutableHVec arr (undefined :: H.ToPeano n) (Just a) >> return arr))
                    ref
   return $ go st
 
 -- | Write repeated field into accumulator
-writeRepeated :: forall n a msg. ( H.ValueAt (H.ToIndNat n) (FieldTypes msg) ~ Seq a
-                                 , F.Arity (H.ToIndNat n))
+writeRepeated :: forall n a msg. ( H.ValueAt (H.ToPeano n) (FieldTypes msg) ~ Seq a
+                                 , F.Arity (H.ToPeano n))
               => Sing n
               -> Get a
               -> MutableMsg msg
@@ -218,14 +218,14 @@ writeRepeated :: forall n a msg. ( H.ValueAt (H.ToIndNat n) (FieldTypes msg) ~ S
 writeRepeated _ getter st = do
   a <- getter
   let go (MutableMsg marr ref) =
-        MutableMsg (marr >>= (\arr -> H.modifyMutableHVec arr (undefined :: H.ToIndNat n) (\sq -> sq |> a) >> return arr))
+        MutableMsg (marr >>= (\arr -> H.modifyMutableHVec arr (undefined :: H.ToPeano n) (\sq -> sq |> a) >> return arr))
                    ref
   return $ go st
 
 
 -- | Write repeated field into accumulator
-writeRepeatedPacked :: forall n a msg. ( H.ValueAt (H.ToIndNat n) (FieldTypes msg) ~ Seq a
-                                       , F.Arity (H.ToIndNat n))
+writeRepeatedPacked :: forall n a msg. ( H.ValueAt (H.ToPeano n) (FieldTypes msg) ~ Seq a
+                                       , F.Arity (H.ToPeano n))
                     => Sing n
                     -> Get a
                     -> MutableMsg msg
@@ -233,6 +233,6 @@ writeRepeatedPacked :: forall n a msg. ( H.ValueAt (H.ToIndNat n) (FieldTypes ms
 writeRepeatedPacked _ getter st = do
   a <- getPacked getter
   let go (MutableMsg marr ref) =
-        MutableMsg (marr >>= (\arr -> H.modifyMutableHVec arr (undefined :: H.ToIndNat n) (\sq -> sq >< a) >> return arr))
+        MutableMsg (marr >>= (\arr -> H.modifyMutableHVec arr (undefined :: H.ToPeano n) (\sq -> sq >< a) >> return arr))
                    ref
   return $ go st
