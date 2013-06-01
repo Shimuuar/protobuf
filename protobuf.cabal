@@ -31,6 +31,7 @@ Library
     array,
     template-haskell >= 2.8,
     groom,
+    fixed-vector,
     fixed-vector-hetero
   Exposed-modules:
     Data.Protobuf
