@@ -103,12 +103,12 @@ genInstance opts (PbMessage name fields) = do
                    (normalC con [return (NotStrict, ConT ''HVec `AppT` fieldTypes)])
                    []
         -- Show instance for message
-        tellD $ do
-          x <- newName "x"
-          [d| instance Show (Message $msgNm) where
-                show = $(lamE [conP con [varP x]]
-                              [| $(TH.lift (nameBase con++" ")) ++ show $(varE x) |])
-           |]
+--         tellD $ do
+--           x <- newName "x"
+--           [d| instance Show (Message $msgNm) where
+--                 show = $(lamE [conP con [varP x]]
+--                               [| $(TH.lift (nameBase con++" ")) ++ show $(varE x) |])
+--            |]
         -- HVector instance for message
         do v <- lift $ newName "v"
            f <- lift $ newName "f"
