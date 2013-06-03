@@ -28,8 +28,8 @@ import Language.Haskell.TH.Quote
 import qualified Language.Haskell.TH.Syntax as TH
 import GHC.TypeLits
 
-import Data.Vector.HFixed      (HVector(..),Fun(..),element)
-import Data.Vector.HFixed.HVec (HVec,newMutableHVec,writeMutableHVec)
+import Data.Vector.HFixed      (HVector(..),Fun(..),elementTy)
+import Data.Vector.HFixed.HVec (HVec,newMutableHVec,writeMutableHVec,natIdx)
 
 import Data.Protobuf
 import Data.Protobuf.API
@@ -173,7 +173,7 @@ genInstance opts (PbMessage name fields) = do
       tellD1 $ do
         instanceD (return []) (conT ''Field `appT` msgNm `appT` strLit fld)
           [ tySynInstD ''FieldTy [msgNm, strLit fld] (return ty)
-          , varP 'field $= [| \_ -> element $(singNat i) |]
+          , varP 'field $= [| \_ -> $(varE 'elementTy `appE` singNat i) |]
           ]
     -- Instance for 'Protobuf' (serialization/deserialization)
     --
@@ -258,17 +258,17 @@ emptyVec fields = do
   doE $ concat
     [ [ bindS (varP hvec) [| newMutableHVec |] ]
     , map noBindS $ flip concatMap (zip [0..] fields) $ \(i, PbField modif name ty _ opts) ->
-       let n = singNat i
+       let n = [| natIdx $(singNat i) |]
        in case modif of
           Required -> []
-          Repeated -> [ [| writeMutableHVec $(varE hvec) $n $([| Seq.empty |]) |] ]
+          Repeated -> [ [| $(varE 'writeMutableHVec) $(varE hvec) $n $([|Seq.empty|]) |] ]
           Optional -> case [ o | OptDefault o <- opts ] of
-                       []              -> [ [| writeMutableHVec $(varE hvec) $n $([| Nothing |]) |] ]
-                       [OptInt    k]   -> [ [| writeMutableHVec $(varE hvec) $n $([| Just $(litE (integerL  k)) |]) |] ]
-                       [OptReal   k]   -> [ [| writeMutableHVec $(varE hvec) $n $([| Just $(litE (rationalL k)) |]) |] ]
-                       [OptString k]   -> [ [| writeMutableHVec $(varE hvec) $n $([| Just $(litE (stringL k))   |]) |] ]
-                       [OptBool True]  -> [ [| writeMutableHVec $(varE hvec) $n $([| Just True                  |]) |] ]
-                       [OptBool False] -> [ [| writeMutableHVec $(varE hvec) $n $([| Just False                 |]) |] ]
+                       []              -> [ [| $(varE 'writeMutableHVec) $(varE hvec) $n $([| Nothing |]) |] ]
+                       [OptInt    k]   -> [ [| $(varE 'writeMutableHVec) $(varE hvec) $n $([| Just $(litE (integerL  k)) |]) |] ]
+                       [OptReal   k]   -> [ [| $(varE 'writeMutableHVec) $(varE hvec) $n $([| Just $(litE (rationalL k)) |]) |] ]
+                       [OptString k]   -> [ [| $(varE 'writeMutableHVec) $(varE hvec) $n $([| Just $(litE (stringL k))   |]) |] ]
+                       [OptBool True]  -> [ [| $(varE 'writeMutableHVec) $(varE hvec) $n $([| Just True                  |]) |] ]
+                       [OptBool False] -> [ [| $(varE 'writeMutableHVec) $(varE hvec) $n $([| Just False                 |]) |] ]
                        _ -> error "Ay-ay-ay"
         -- where
     , [noBindS [| return $(varE hvec) |]]
