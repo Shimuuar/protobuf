@@ -225,7 +225,7 @@ writeRepeated :: forall n a msg. ( H.ValueAt (H.ToPeano n) (FieldTypes msg) ~ Se
 writeRepeated _ getter st = do
   a <- getter
   let go (MutableMsg marr ref) =
-        MutableMsg (marr >>= (\arr -> H.modifyMutableHVec arr (H.natIdx (sing :: Sing n)) (\sq -> sq |> a) >> return arr))
+        MutableMsg (marr >>= (\arr -> H.modifyMutableHVec' arr (H.natIdx (sing :: Sing n)) (\sq -> sq |> a) >> return arr))
                    ref
   return $ go st
 
@@ -242,6 +242,6 @@ writeRepeatedPacked :: forall n a msg. ( H.ValueAt (H.ToPeano n) (FieldTypes msg
 writeRepeatedPacked _ getter st = do
   a <- getPacked getter
   let go (MutableMsg marr ref) =
-        MutableMsg (marr >>= (\arr -> H.modifyMutableHVec arr (H.natIdx (sing :: Sing n)) (\sq -> sq >< a) >> return arr))
+        MutableMsg (marr >>= (\arr -> H.modifyMutableHVec' arr (H.natIdx (sing :: Sing n)) (\sq -> sq >< a) >> return arr))
                    ref
   return $ go st
