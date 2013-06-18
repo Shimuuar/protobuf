@@ -39,6 +39,7 @@ Library
     Data.Protobuf.TH
     Data.Protobuf.Serialize.VarInt
     Data.Protobuf.Serialize.Protobuf
+    Data.Protobuf.Serialize.Message
   Other-modules:
     Data.Protobuf.Grammar.Parser
     Data.Protobuf.Grammar.Lexer
