@@ -84,7 +84,7 @@ import GHC.TypeLits
 --   It seems there is no single option that could reasonably work in
 --   every case. So function that generate instances have selection of
 --   options to handle name clashes.
-data family Message (msg :: Symbol) :: *
+type family Message (msg :: Symbol) :: *
 
 -- | Haskell types of all fields in a message.
 type family FieldTypes (msg :: Symbol) :: [*]
