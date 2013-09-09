@@ -83,9 +83,9 @@ elm = QuasiQuoter
 
 -- Type of message to generate
 data MessageType
-  = MessageHVec   -- Use HVec
-  | MessageRec    -- Generate normal haskell record
-  | MessageExists -- instance exists already do nothing
+  = MessageHVec        -- Use HVec
+  | MessageRec         -- Generate normal haskell record
+  | MessageExists Type -- instance exists already do nothing
 
 -- Generate instance for the data type
 genInstance :: [PbGenOption] -> PbDatatype -> Q [Dec]
@@ -94,73 +94,15 @@ genInstance opts (PbMessage name fields) = do
       fieldTypes = makeTyList $ map snd tyFields
       qualName   = unqualify name
       msgNm      = return $ qstrLit name
-  -- Generate instance for `Message' using HVec (default) 
-  let genMessageHVec = do
-        -- Generate name for data constructor
-        con <- lift $ newName $ "Message_" ++ unqualifyWith '_' name
-        -- Data instance for message
-        tellD1 $ newtypeInstD (return []) ''Message [msgNm]
-                   (normalC con [return (NotStrict, ConT ''HVec `AppT` fieldTypes)])
-                   []
-        -- Show instance for message
---         tellD $ do
---           x <- newName "x"
---           [d| instance Show (Message $msgNm) where
---                 show = $(lamE [conP con [varP x]]
---                               [| $(TH.lift (nameBase con++" ")) ++ show $(varE x) |])
---            |]
-        -- HVector instance for message
-        do v <- lift $ newName "v"
-           f <- lift $ newName "f"
-           tellD
-             [d| instance HVector (Message $msgNm) where
-                   type Elems (Message $msgNm) = FieldTypes $msgNm
-                   construct = $([| fmap $(conE con) construct |])
-                   inspect   = $(lamE [conP con [varP v], varP f]
-                                      [| inspect $(varE v) $(varE f) |])
-               |]
-  -- Generate instance for `Message' using haskell records
-  let genMessageRec = do
-        -- Generate data type and derived Show instance
-        con <- lift $ newName $ case name of QName _ s -> s
-        let flds = [return $ (mkName nm,IsStrict,ty) | (nm,ty) <- tyFields]
-        tellD1 $ dataInstD (return []) ''Message [msgNm]
-                   [recC con flds] []
-        -- Derive HVector instance
-        xs <- lift $ mapM newName ["x" | _ <- tyFields]
-        f  <- lift $ newName "f"
-        tellD
-          [d| instance HVector (Message $msgNm) where
-                type Elems (Message $msgNm) = FieldTypes $msgNm
-                construct = Fun $(conE con)
-                inspect   = $( lamE [ conP con  (map varP xs)
-                                    , conP 'Fun [varP f]
-                                    ]
-                             $ foldl appE (varE f) (map varE xs)
-                             )
-            |]
-  -- Choose which generator to use
-  let chooseGenerator = do
-        -- First we want to check whether data instance is already defined
-        -- by user. If so data type and Show/HVector instances will not be
-        FamilyI _ instances  <- lift $ reify ''Message
-        let defined = not $ null $
-              [() | DataInstD    _ _ [LitT (StrTyLit s)] _ _ <- instances, s == qualName] ++
-              [() | NewtypeInstD _ _ [LitT (StrTyLit s)] _ _ <- instances, s == qualName]
-        let useRecs = not $ null [() | MsgRecord nm <- opts, nm == qualName]
-        case () of
-          _| defined   -> return MessageExists
-           | useRecs   -> return MessageRec
-           | otherwise -> return MessageHVec
-  ----------------------------------------------------------------
-  -- Main body
   execWriterT $ do
-    -- Generate data type
-    toGen <- chooseGenerator
-    case toGen of
-      MessageHVec   -> genMessageHVec
-      MessageRec    -> genMessageRec
-      MessageExists -> return ()
+    -- First we want to check whether data instance is already
+    -- defined by user. If so data type and Show/HVector instances
+    -- will not be generated
+    toGen <- lift $ chooseGenerator qualName opts
+    ty <- case toGen of
+            MessageHVec      -> genMessageHVec msgNm name fieldTypes
+            MessageRec       -> genMessageRec  msgNm name tyFields fieldTypes
+            MessageExists ty -> return ty
     -- Type instance for 'FieldTypes'
     tellD1 $
       tySynInstD ''FieldTypes [msgNm] (return fieldTypes)
@@ -178,21 +120,26 @@ genInstance opts (PbMessage name fields) = do
     -- Instance for 'Protobuf' (serialization/deserialization)
     --
     -- NOTE: same caveat as above about splices apply
-    deser <- lift $ deserializeDecl  name fields
+    deser <- lift $ deserializeDecl  name fields ty
     ser   <- lift $ serializtionDecl name fields
-    tell [ InstanceD [] (ConT ''Protobuf `AppT` (qstrLit name))
-             [ ValD (VarP 'serialize)    (NormalB $ ser  ) []
+    tell [ InstanceD [] (ConT ''Protobuf `AppT` ty)
+             [ TySynInstD ''MessageName [ty] (qstrLit name) 
+             , ValD (VarP 'serialize)    (NormalB $ ser  ) []
              , ValD (VarP 'getMessageST) (NormalB $ deser) []
              ]
          ]
+    return ()
 -- Generate instances for enums
 genInstance _ (PbEnum name fields) = execWriterT $ do
   let msgNm = return $ qstrLit name
+  let con   = mkName $ unqualifyWith '_' name
   -- Data constructor
   tellD1 $
-    dataInstD (return []) ''Message [msgNm]
-      [ normalC (mkName con) [] | (_,con) <- fields ]
+    dataD (return []) con []
+      [ normalC (mkName c) [] | (_,c) <- fields ]
       [''Show,''Eq,''Ord]
+  tellD1 $
+    tySynInstD ''MessageName [msgNm] (conT con)
   -- PbEnum instance
   let exprFrom = do
         a <- newName "a"
@@ -203,11 +150,80 @@ genInstance _ (PbEnum name fields) = execWriterT $ do
         lamE [varP a] $ caseE (varE a) $
           [ litP (integerL i) --> [| Just $(conE (mkName nm)) |] | (i,nm) <- fields ]++
           [ wildP             --> [| Nothing |] ]
-  tellD [d| instance PbEnum (Message $msgNm) where
+  tellD [d| instance PbEnum (conT con) where
               toPbEnum   = $exprTo
               fromPbEnum = $exprFrom
           |]
 
+
+-- Choose generator for protobuf message.
+chooseGenerator :: String        -- Qualified message name
+                -> [PbGenOption] -- Options for TH generator
+                -> Q MessageType
+chooseGenerator qualName opts = do
+  -- Check that type instance for Message already defined
+  FamilyI _ instances <- reify ''Message
+  let defined = [ty | TySynInstD _ [LitT (StrTyLit s)] ty <- instances
+                    , s == qualName
+                ]
+  -- Check whether we need to generate data as haskell record
+  let useRecs = not $ null [() | MsgRecord nm <- opts, nm == qualName]
+  case defined of
+    [ty]          -> return $ MessageExists ty
+    _ | useRecs   -> return MessageRec
+      | otherwise -> return MessageHVec
+
+-- Generate message as newtype wrapper over HVec
+genMessageHVec :: TypeQ         -- Name of message as type (FIXME: duplication)
+               -> QName         -- Name of message
+               -> Type          -- Type level list of message elements
+               -> WriterT [Dec] Q Type
+genMessageHVec msgNm name fieldTypes = do
+  let con = mkName $ unqualifyWith '_' name
+  tellD1 $ newtypeD (return []) con []
+             (normalC con [return (NotStrict, ConT ''HVec `AppT` fieldTypes)]) []
+  tellD1 $ tySynInstD ''Message [msgNm] (conT con)
+  -- HVector instance for message
+  v <- lift $ newName "v"
+  f <- lift $ newName "f"
+  -- Cannot use splices (GHC bug #4230)
+  tellD1 $
+    instanceD (return []) (conT ''HVector `appT` conT con)
+      [ tySynInstD ''Elems [conT con] (return fieldTypes)
+      , varP 'construct $= [| fmap $(conE con) construct |]
+      , varP 'inspect   $= lamE [conP con [varP v], varP f]
+                             [| inspect $(varE v) $(varE f) |]
+      ]
+  lift $ conT con
+
+-- Generate instance for `Message' using haskell records
+genMessageRec :: TypeQ            -- Name of message as type (FIXME: duplication)
+              -> QName            -- Name of message
+              -> [(String, Type)] -- List of pairs (field name, field type)
+              -> Type          -- Type level list of message elements
+              -> WriterT [Dec] Q Type
+genMessageRec msgNm name tyFields fieldTypes = do
+  -- Generate data type and derived Show instance
+  let conTy = mkName $ unqualifyWith '_' name
+      con   = mkName $ case name of QName _ s -> s
+  let flds = [return $ (mkName nm,IsStrict,ty) | (nm,ty) <- tyFields]
+  tellD1 $ dataD (return []) conTy [] [recC con flds] []
+  tellD1 $ tySynInstD ''Message [msgNm] (conT conTy)
+  -- Derive HVector instance
+  xs <- lift $ mapM newName ["x" | _ <- tyFields]
+  f  <- lift $ newName "f"
+  -- Cannot use splices (GHC bug #4230)
+  tellD1 $
+    instanceD (return []) (conT ''HVector `appT` conT conTy)
+      [ tySynInstD ''Elems [conT conTy] (return fieldTypes)
+      , varP 'construct $= (conE 'Fun `appE` conE con)
+      , varP 'inspect   $= ( lamE [ conP con  (map varP xs)
+                                  , conP 'Fun [varP f]
+                                  ]
+                           $ foldl appE (varE f) (map varE xs)
+                           )
+      ]
+  lift $ conT conTy
 
 -- Getter function
 getterTH :: Int -> Int -> Q Exp
@@ -241,12 +257,12 @@ serializtionDecl nm fields
 -- Declaration of deserialization function. General layout
 --
 -- > getRecords updFun emptyRec
-deserializeDecl :: QName -> [PbField] -> Q Exp
-deserializeDecl name fields = do
+deserializeDecl :: QName -> [PbField] -> Type -> Q Exp
+deserializeDecl name fields ty = do
   updFun <- newName "updFun"
   emp    <- newName "emp"
   --
-  letE [ varP emp $= [| MutableMsg $(emptyVec fields) () :: MutableMsg $(return (qstrLit name)) |]
+  letE [ varP emp $= [| MutableMsg $(emptyVec fields) () :: MutableMsg $(return ty) |]
        , updateDecl updFun (zip [0..] fields)
        ]
        [| getRecords $(varE updFun) $(varE emp) |]
