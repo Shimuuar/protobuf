@@ -143,7 +143,7 @@ putOptional putter (Just x) = putter x
 putOptional _      Nothing  = return ()
 {-# INLINE putOptional #-}
 
-getDelimited :: Protobuf m => Get (Message m)
+getDelimited :: Protobuf m => Get m
 getDelimited = do
   n <- getVarInt
   isolate n getMessage
@@ -182,7 +182,7 @@ getRecords step new
 
 
 -- | Write required field into accumulator
-writeRequired :: forall n a msg. ( H.ValueAt (H.ToPeano n) (FieldTypes msg) ~ a
+writeRequired :: forall n a msg. ( H.ValueAt (H.ToPeano n) (FieldTypes (MessageName msg)) ~ a
                                  , H.NatIso  (H.ToPeano n) n
                                  , SingI n
                                  , F.Arity (H.ToPeano n))
@@ -198,7 +198,7 @@ writeRequired _ getter st = do
   return $ go st
 
 -- | Write optional field into accumulator
-writeOptional :: forall n a msg. ( H.ValueAt (H.ToPeano n) (FieldTypes msg) ~ Maybe a
+writeOptional :: forall n a msg. ( H.ValueAt (H.ToPeano n) (FieldTypes (MessageName msg)) ~ Maybe a
                                  , H.NatIso  (H.ToPeano n) n
                                  , SingI n
                                  , F.Arity (H.ToPeano n))
@@ -214,7 +214,7 @@ writeOptional _ getter st = do
   return $ go st
 
 -- | Write repeated field into accumulator
-writeRepeated :: forall n a msg. ( H.ValueAt (H.ToPeano n) (FieldTypes msg) ~ Seq a
+writeRepeated :: forall n a msg. ( H.ValueAt (H.ToPeano n) (FieldTypes (MessageName msg)) ~ Seq a
                                  , H.NatIso  (H.ToPeano n) n
                                  , SingI n
                                  , F.Arity (H.ToPeano n))
@@ -231,7 +231,7 @@ writeRepeated _ getter st = do
 
 
 -- | Write repeated field into accumulator
-writeRepeatedPacked :: forall n a msg. ( H.ValueAt (H.ToPeano n) (FieldTypes msg) ~ Seq a
+writeRepeatedPacked :: forall n a msg. ( H.ValueAt (H.ToPeano n) (FieldTypes (MessageName msg)) ~ Seq a
                                        , H.NatIso  (H.ToPeano n) n
                                        , SingI n
                                        , F.Arity (H.ToPeano n))
