@@ -28,7 +28,8 @@ import Language.Haskell.TH.Quote
 import qualified Language.Haskell.TH.Syntax as TH
 import GHC.TypeLits
 
-import Data.Vector.HFixed      (HVector(..),Fun(..),elementTy)
+import Data.Vector.HFixed      (HVector(..),elementTy)
+import Data.Vector.HFixed.Class(Fun(..))
 import Data.Vector.HFixed.HVec (HVec,newMutableHVec,writeMutableHVec,natIdx)
 
 import Data.Protobuf
