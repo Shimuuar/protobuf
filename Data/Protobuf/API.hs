@@ -119,6 +119,7 @@ class Field (msg :: Symbol) (fld :: Symbol) where
 --   elements' types.
 class ( HVector msg
       , Elems msg ~ FieldTypes (MessageName msg)
+      , H.Arity (FieldTypes (MessageName msg))
       , Message (MessageName msg) ~ msg
       ) => Protobuf (msg :: *) where
   -- | Protobuf name of message
@@ -157,7 +158,7 @@ data MutableMsg (msg :: *) =
   -- (ST s (STRef s Int))
 
 
-freezeMutableMsg :: (Protobuf msg)
+freezeMutableMsg :: Protobuf msg
                  => MutableMsg msg -> Get msg
 freezeMutableMsg (MutableMsg marr _)
   = return $ H.convert $ runST $ H.unsafeFreezeHVec =<< marr
