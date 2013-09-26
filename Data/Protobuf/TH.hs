@@ -116,7 +116,7 @@ genInstance opts (PbMessage name fields) = do
       tellD1 $ do
         instanceD (return []) (conT ''Field `appT` msgNm `appT` strLit fld)
           [ tySynInstD ''FieldTy [msgNm, strLit fld] (return ty)
-          , varP 'field $= [| \_ -> $(varE 'elementTy `appE` singNat i) |]
+          , varP 'fieldLens $= [| \_ _ -> $(varE 'elementTy `appE` singNat i) |]
           ]
     -- Instance for 'Protobuf' (serialization/deserialization)
     --
