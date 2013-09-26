@@ -71,7 +71,7 @@ generateProtobuf opts incs fnames = do
 -- | Sugar for the field access
 elm :: QuasiQuoter
 elm = QuasiQuoter
-  { quoteExp  = \s -> [|field|] `appE` [| sing :: Sing $(litT (strTyLit s)) |]
+  { quoteExp  = \s -> (varE 'field) `appE` [| sing :: Sing $(litT (strTyLit s)) |]
   , quotePat  = error "No pattern quasi quotation"
   , quoteType = error "No type quasi quotation"
   , quoteDec  = error "No declaration quasi quotation"

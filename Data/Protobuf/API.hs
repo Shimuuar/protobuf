@@ -35,6 +35,7 @@ module Data.Protobuf.API (
     Message
   , FieldTypes
   , Field(..)
+  , field
   , PbEnum(..)
     -- * Serialization
   , Protobuf(..)
@@ -100,11 +101,24 @@ class Field (msg :: Symbol) (fld :: Symbol) where
   -- | Haskell type of field.
   type FieldTy msg fld :: *
   -- | Twan van Laarhoven lens for message.
-  field :: (Functor f, FieldTy msg fld ~ a)
-        => Sing fld
-        -> (a -> f a)
-        -> (Message msg -> f (Message msg))
+  fieldLens :: (Functor f, FieldTy msg fld ~ a)
+            => Sing msg
+            -> Sing fld
+            -> (a -> f a)
+            -> (Message msg -> f (Message msg))
 
+-- | Lens for field access
+field :: forall msg fld f a. ( Protobuf msg
+                             , Field (MessageName msg) fld
+                             , Functor f
+                             , FieldTy (MessageName msg) fld ~ a
+                             , SingI (MessageName msg)
+                             )
+      => Sing fld
+      -> (a -> f a)
+      -> (msg -> f msg)
+{-# INLINE field #-}
+field = fieldLens (sing :: Sing (MessageName msg))
 
 
 ----------------------------------------------------------------
