@@ -23,6 +23,7 @@ Library
     base           >=3 && <5,
     bytestring,
     containers,
+    text,
     mtl            > 2,
     transformers,
     cereal,

@@ -18,7 +18,7 @@ import Data.Serialize
 import qualified Data.Sequence      as Seq
 import qualified Data.Vector.HFixed as H
 import Data.Vector.HFixed.HVec (HVec)
-
+import Data.Text (pack)
 
 import Test.Tasty
 import Test.Tasty.QuickCheck
@@ -67,8 +67,7 @@ instance Arbitrary (Name_Seq) where
 instance Arbitrary (Name_Simple) where
   arbitrary = H.mk2 <$> arbitrary <*> arbitrary
 instance Arbitrary (Name_Simple_Nested) where
-  arbitrary = H.mk1 <$> arbitrary
+  arbitrary = H.mk1 . pack <$> arbitrary
 
 arbitrarySeq :: Arbitrary a => Gen (Seq.Seq a)
 arbitrarySeq = Seq.fromList <$> arbitrary
- 

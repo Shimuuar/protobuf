@@ -34,6 +34,8 @@ import Data.ByteString          (ByteString)
 import qualified Data.ByteString as BS
 import Data.Serialize
 import Data.Protobuf.Serialize.VarInt
+import Data.Text          (Text)
+import Data.Text.Encoding (decodeUtf8,encodeUtf8)
 import qualified Data.Sequence as Seq
 import           Data.Sequence   (Seq,(|>),(><))
 import qualified Data.Foldable as F
@@ -63,9 +65,9 @@ instance Serialize WireTag where
     return $! WireTag (i `shiftR` 3) (0x07 .&. i)
   put (WireTag t w) = putVarInt $ (t `shiftL` 3) .|. w
 
--- | Put wire atf 
-putWithWireTag :: Int 
-               -> Int 
+-- | Put wire atf
+putWithWireTag :: Int
+               -> Int
                -> (a -> Put)
                -> a -> Put
 {-# INLINE putWithWireTag #-}
@@ -78,7 +80,7 @@ getVarInt :: Get Int
 getVarInt = fromIntegral <$> getVarWord64
 
 putVarInt :: Int -> Put
-putVarInt = putVarWord64 . fromIntegral 
+putVarInt = putVarWord64 . fromIntegral
 
 -- | Skip unknow field
 skipUnknownField :: WireTag -> Get ()
@@ -112,15 +114,17 @@ getSeq s getter = do
             getSeq (s |> x) getter
 
 -- | Get PB encoded string
-getPbString :: Get String
+getPbString :: Get Text
 getPbString = do
-  n <- getVarInt
-  isolate n getChars
+  n  <- getVarInt
+  bs <- getByteString n
+  return $! decodeUtf8 bs
 
-putPbString :: String -> Put
+putPbString :: Text -> Put
 putPbString str = do
-  putVarInt (length str)
-  mapM_ put str
+  let bs = encodeUtf8 str
+  putVarInt (BS.length bs)
+  putByteString bs
 
 -- worker for getPbString
 getChars :: Get String
@@ -165,7 +169,7 @@ putPbEnum = putVarInt . fromPbEnum
 ----------------------------------------------------------------
 
 
--- | Combinator for stateful parsing of message 
+-- | Combinator for stateful parsing of message
 getRecords
   :: (WireTag -> a -> Get a) -- ^ Update function
   -> a                       -- ^ Initial state

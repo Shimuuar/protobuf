@@ -17,6 +17,7 @@ import Control.Monad
 import Control.Monad.Writer
 import Data.Int
 import Data.Word
+import Data.Text       (Text)
 import Data.List       (intercalate)
 import Data.ByteString (ByteString)
 import Data.Sequence   (Seq)
@@ -367,7 +368,7 @@ findType (PbField m ty name _ _)
         TyPrim PbSFixed32 -> ConT ''Int32
         TyPrim PbSFixed64 -> ConT ''Int64
         TyPrim PbBool     -> ConT ''Bool
-        TyPrim PbString   -> ConT ''String
+        TyPrim PbString   -> ConT ''Text
         TyPrim PbBytes    -> ConT ''ByteString
         -- Custom types
         TyMessage nm      -> ConT ''Message `AppT` qstrLit nm
