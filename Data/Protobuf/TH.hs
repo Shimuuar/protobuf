@@ -196,6 +196,8 @@ genMessageHVec msgNm name fieldTypes = do
       , varP 'construct $= [| fmap $(conE con) construct |]
       , varP 'inspect   $= lamE [conP con [varP v], varP f]
                              [| inspect $(varE v) $(varE f) |]
+      , pragInlD 'construct Inline FunLike AllPhases
+      , pragInlD 'inspect   Inline FunLike AllPhases
       ]
   lift $ conT con
 
@@ -225,6 +227,8 @@ genMessageRec msgNm name tyFields fieldTypes = do
                                   ]
                            $ foldl appE (varE f) (map varE xs)
                            )
+      , pragInlD 'construct Inline FunLike AllPhases
+      , pragInlD 'inspect   Inline FunLike AllPhases
       ]
   lift $ conT conTy
 
