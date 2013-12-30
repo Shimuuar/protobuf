@@ -133,7 +133,6 @@ field = fieldLens (sing :: Sing (MessageName msg))
 --   elements' types.
 class ( HVector msg
       , Elems msg ~ FieldTypes (MessageName msg)
-      , H.Arity (FieldTypes (MessageName msg))
       , Message (MessageName msg) ~ msg
       ) => Protobuf (msg :: *) where
   -- | Protobuf name of message
