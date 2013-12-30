@@ -1,0 +1,13 @@
+package Name;
+
+message Simple {
+    message Nested {
+        required string text = 1;
+    }
+    optional int32 fld_1 = 2;
+    required int32 fld_2 = 3;
+}
+
+message Seq {
+    repeated int32 many = 1;
+}
