@@ -20,6 +20,7 @@ import Data.Word
 import Data.List       (intercalate)
 import Data.ByteString (ByteString)
 import Data.Sequence   (Seq)
+import Data.Typeable   (Typeable)
 import qualified Data.Foldable as F
 import qualified Data.Sequence as Seq
 import Language.Haskell.TH
@@ -182,7 +183,7 @@ genMessageHVec :: TypeQ         -- Name of message as type (FIXME: duplication)
 genMessageHVec msgNm name fieldTypes = do
   let con = mkName $ unqualifyWith '_' name
   tellD1 $ newtypeD (return []) con []
-             (normalC con [return (NotStrict, ConT ''HVec `AppT` fieldTypes)]) []
+             (normalC con [return (NotStrict, ConT ''HVec `AppT` fieldTypes)]) [''Typeable,''Show,''Eq]
   tellD1 $ tySynInstD ''Message [msgNm] (conT con)
   -- HVector instance for message
   v <- lift $ newName "v"
