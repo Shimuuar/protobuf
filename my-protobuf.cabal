@@ -59,8 +59,22 @@ Test-suite test
     base >=3 && <5,
     my-protobuf,
     fixed-vector-hetero,
+    text,
     containers,
     cereal,
     tasty,
     tasty-quickcheck,
     QuickCheck
+
+Benchmark benchmarks
+  Type:           exitcode-stdio-1.0
+  Main-is:        bench.hs
+  hs-source-dirs: benchmarks
+  Ghc-options:    -O2 -Wall
+  build-depends:
+    base >=3 && <5,
+    my-protobuf,
+    fixed-vector-hetero,
+    containers,
+    cereal,
+    criterion
