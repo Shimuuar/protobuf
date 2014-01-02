@@ -189,6 +189,7 @@ writeRequired :: forall n a msg. ( H.ValueAt (H.ToPeano n) (FieldTypes (MessageN
               -> Get a
               -> MutableMsg msg
               -> Get (MutableMsg msg)
+{-# INLINE writeRequired #-}
 writeRequired _ getter st = do
   a <- getter
   let go (MutableMsg marr ref) =
@@ -205,6 +206,7 @@ writeOptional :: forall n a msg. ( H.ValueAt (H.ToPeano n) (FieldTypes (MessageN
               -> Get a
               -> MutableMsg msg
               -> Get (MutableMsg msg)
+{-# INLINE writeOptional #-}
 writeOptional _ getter st = do
   a <- getter
   let go (MutableMsg marr ref) =
@@ -221,6 +223,7 @@ writeRepeated :: forall n a msg. ( H.ValueAt (H.ToPeano n) (FieldTypes (MessageN
               -> Get a
               -> MutableMsg msg
               -> Get (MutableMsg msg)
+{-# INLINE writeRepeated #-}
 writeRepeated _ getter st = do
   a <- getter
   let go (MutableMsg marr ref) =
@@ -238,6 +241,7 @@ writeRepeatedPacked :: forall n a msg. ( H.ValueAt (H.ToPeano n) (FieldTypes (Me
                     -> Get a
                     -> MutableMsg msg
                     -> Get (MutableMsg msg)
+{-# INLINE writeRepeatedPacked #-}
 writeRepeatedPacked _ getter st = do
   a <- getPacked getter
   let go (MutableMsg marr ref) =
