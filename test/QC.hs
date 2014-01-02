@@ -37,6 +37,7 @@ tests = testGroup "tests"
   [ testTagged p_serialize (T :: T (Message "Name.Simple"))
   , testTagged p_serialize (T :: T (Message "Name.Simple.Nested"))
   , testTagged p_serialize (T :: T (Message "Name.Seq"))
+  , testTagged p_serialize (T :: T (Message "Name.Seqp"))
   ]
 
 main :: IO ()
@@ -63,6 +64,8 @@ testTagged prop t
 $(generateProtobuf [] [] ["test/test.proto"])
 
 instance Arbitrary (Name_Seq) where
+  arbitrary = H.mk1 <$> arbitrarySeq
+instance Arbitrary (Name_Seqp) where
   arbitrary = H.mk1 <$> arbitrarySeq
 instance Arbitrary (Name_Simple) where
   arbitrary = H.mk2 <$> arbitrary <*> arbitrary

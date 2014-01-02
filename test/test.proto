@@ -11,3 +11,7 @@ message Simple {
 message Seq {
     repeated int32 many = 1;
 }
+
+message Seqp {
+    repeated int32 many = 1 [packed = true];
+}
