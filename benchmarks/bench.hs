@@ -26,13 +26,20 @@ import Criterion.Main
 -- Benchmarks
 ----------------------------------------------------------------
 
--- Data files with different length
+-- Data sample with different length
 seq_1,seq_3,seq_10,seq_30,seq_100 :: Message "Name.Seq"
 seq_1   = H.mk1 $ Seq.fromList [1     ]
 seq_3   = H.mk1 $ Seq.fromList [1..3  ]
 seq_10  = H.mk1 $ Seq.fromList [1..10 ]
 seq_30  = H.mk1 $ Seq.fromList [1..30 ]
 seq_100 = H.mk1 $ Seq.fromList [1..100]
+-- Packed sequences with different length
+pseq_1,pseq_3,pseq_10,pseq_30,pseq_100 :: Message "Name.Seqp"
+pseq_1   = H.mk1 $ Seq.fromList [1     ]
+pseq_3   = H.mk1 $ Seq.fromList [1..3  ]
+pseq_10  = H.mk1 $ Seq.fromList [1..10 ]
+pseq_30  = H.mk1 $ Seq.fromList [1..30 ]
+pseq_100 = H.mk1 $ Seq.fromList [1..100]
 
 
 benchDecode :: forall msg. Protobuf msg => String -> msg -> Benchmark
@@ -54,6 +61,13 @@ main = do
       , benchDecode "10"  seq_10
       , benchDecode "30"  seq_30
       , benchDecode "100" seq_100
+      ]
+    , bgroup "packed_seq"
+      [ benchDecode "1"   pseq_1
+      , benchDecode "3"   pseq_3
+      , benchDecode "10"  pseq_10
+      , benchDecode "30"  pseq_30
+      , benchDecode "100" pseq_100
       ] 
     ]
 
