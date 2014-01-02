@@ -126,14 +126,6 @@ putPbString str = do
   putVarInt (BS.length bs)
   putByteString bs
 
--- worker for getPbString
-getChars :: Get String
-getChars = do
-  f <- isEmpty
-  if f
-    then return []
-    else (:) <$> get <*> getChars
-
 -- | Get PB encoded bytestring
 getPbBytestring :: Get ByteString
 getPbBytestring = getByteString =<< getVarInt
