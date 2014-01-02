@@ -331,8 +331,12 @@ updateClause (i,(PbField modif ty _ tag opts)) = do
                       $(varE msg)
                  |]
   --
+  let wireTy = case [ () | OptPacked <- opts ] of
+                 []  -> getTyTag ty
+                 [_] -> 2
+                 _   -> error "Internal error"
   sequence
-    [ [ conP 'WireTag [intP tag, intP (getTyTag ty)]
+    [ [ conP 'WireTag [intP tag, intP wireTy]
       , varP msg
       ] $== updExpr
     , [ conP 'WireTag [intP tag, wildP]
