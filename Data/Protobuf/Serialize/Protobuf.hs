@@ -140,11 +140,13 @@ putOptional _      Nothing  = return ()
 {-# INLINE putOptional #-}
 
 getDelimited :: Protobuf m => Get m
+{-# INLINE getDelimited #-}
 getDelimited = do
   n <- getVarInt
   isolate n getMessage
 
 getPbEnum :: PbEnum m => Get m
+{-# INLINE getPbEnum #-}
 getPbEnum = do
   n <- getVarInt
   case toPbEnum n of
@@ -152,6 +154,7 @@ getPbEnum = do
     Nothing -> fail "Bad enum"
 
 putPbEnum :: PbEnum m => m -> Put
+{-# INLINE putPbEnum #-}
 putPbEnum = putVarInt . fromPbEnum
 
 
