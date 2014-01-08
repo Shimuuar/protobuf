@@ -184,7 +184,7 @@ genMessageHVec :: TypeQ         -- Name of message as type (FIXME: duplication)
 genMessageHVec msgNm name fieldTypes = do
   let con = mkName $ unqualifyWith '_' name
   tellD1 $ newtypeD (return []) con []
-             (normalC con [return (NotStrict, ConT ''HVec `AppT` fieldTypes)]) [''Typeable,''Show,''Eq]
+             (normalC con [return (NotStrict, ConT ''HVec `AppT` fieldTypes)]) [''Typeable]
   tellD1 $ tySynInstD ''Message [msgNm] (conT con)
   -- HVector instance for message
   v <- lift $ newName "v"
@@ -212,7 +212,7 @@ genMessageRec msgNm name tyFields fieldTypes = do
   let conTy = mkName $ unqualifyWith '_' name
       con   = mkName $ case name of QName _ s -> s
   let flds = [return $ (mkName nm,IsStrict,ty) | (nm,ty) <- tyFields]
-  tellD1 $ dataD (return []) conTy [] [recC con flds] []
+  tellD1 $ dataD (return []) conTy [] [recC con flds] [''Typeable]
   tellD1 $ tySynInstD ''Message [msgNm] (conT conTy)
   -- Derive HVector instance
   xs <- lift $ mapM newName ["x" | _ <- tyFields]
