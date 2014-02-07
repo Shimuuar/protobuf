@@ -30,6 +30,7 @@ import Language.Haskell.TH.Quote
 import qualified Language.Haskell.TH.Syntax as TH
 import GHC.TypeLits
 
+import qualified Data.Vector.HFixed as H
 import Data.Vector.HFixed      (HVector(..),elementTy)
 import Data.Vector.HFixed.Class(Fun(..))
 import Data.Vector.HFixed.HVec (HVec,newMutableHVec,writeMutableHVec,natIdx)
@@ -109,6 +110,15 @@ genInstance opts (PbMessage name fields) = do
     -- Type instance for 'FieldTypes'
     tellD1 $
       tySynInstD ''FieldTypes [msgNm] (return fieldTypes)
+    tellD1 $
+      instanceD (return []) (conT ''Eq `appT` return ty)
+        [ varP '(==) $= [| H.eq |] ]
+    tellD1 $
+      instanceD (return []) (conT ''Show `appT` return ty)
+        [ varP 'show $= [| \v -> "MSG: " ++ intercalate ", "
+                              (H.foldr (H.Proxy :: H.Proxy Show) (\x xs -> show x : xs) [] v)
+                        |]
+        ]
     -- Instance for 'Field' getter/setter
     forM_ (zip [0..] tyFields) $ \(i,(fld,ty)) -> do
       -- NOTE: splices of data declarations couldn't be used there
