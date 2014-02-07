@@ -4,8 +4,9 @@ message Simple {
     message Nested {
         required string text = 1;
     }
-    optional int32 fld_1 = 2;
-    required int32 fld_2 = 3;
+    optional int32  fld_1 = 2;
+    required int32  fld_2 = 3;
+    repeated Nested fld_3 = 4;
 }
 
 message Seq {

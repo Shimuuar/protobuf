@@ -9,6 +9,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE UndecidableInstances #-}
 import Data.Protobuf.TH
 import Data.Protobuf.API
 
