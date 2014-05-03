@@ -111,15 +111,20 @@ genInstance opts (PbMessage name fields) = do
     -- Type instance for 'FieldTypes'
     tellD1 $
       tySynInstD ''FieldTypes [msgNm] (return fieldTypes)
-    tellD1 $
-      instanceD (return []) (conT ''Eq `appT` return ty)
-        [ varP '(==) $= [| H.eq |] ]
-    tellD1 $
-      instanceD (return []) (conT ''Show `appT` return ty)
-        [ varP 'show $= [| \v -> "MSG: " ++ intercalate ", "
-                              (H.foldr (H.Proxy :: H.Proxy Show) (\x xs -> show x : xs) [] v)
-                        |]
-        ]
+    -- Generate Eq/Show instances
+    case toGen of
+      MessageExists _ -> return ()
+      _               -> do
+        tellD1 $
+          instanceD (return []) (conT ''Eq `appT` return ty)
+            [ varP '(==) $= [| H.eq |] ]
+        tellD1 $
+          instanceD (return []) (conT ''Show `appT` return ty)
+            [ varP 'show $= [| \v -> "MSG: " ++ intercalate ", "
+                                  (H.foldr (H.Proxy :: H.Proxy Show) (\x xs -> show x : xs) [] v)
+                            |]
+            ]
+
     -- Instance for 'Field' getter/setter
     forM_ (zip [0..] tyFields) $ \(i,(fld,ty)) -> do
       -- NOTE: splices of data declarations couldn't be used there
