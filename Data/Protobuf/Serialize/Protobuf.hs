@@ -39,15 +39,10 @@ import Data.Text.Encoding (decodeUtf8,encodeUtf8)
 import qualified Data.Sequence as Seq
 import           Data.Sequence   (Seq,(|>),(><))
 import qualified Data.Foldable as F
-import qualified Data.Vector.Fixed        as F (Arity)
 import qualified Data.Vector.HFixed       as H
 import qualified Data.Vector.HFixed.HVec  as H
-import qualified Data.Vector.HFixed.Class as H (NatIso(..))
-import GHC.TypeLits
-
 
 import Data.Protobuf.API
-
 
 
 
@@ -181,70 +176,74 @@ getRecords step new
 
 
 -- | Write required field into accumulator
-writeRequired :: forall n a msg. ( H.ValueAt (H.ToPeano n) (FieldTypes (MessageName msg)) ~ a
-                                 , H.NatIso  (H.ToPeano n) n
-                                 , SingI n
-                                 , F.Arity (H.ToPeano n))
-              => Sing n
-              -> Get a
-              -> MutableMsg msg
-              -> Get (MutableMsg msg)
+writeRequired
+  :: ( H.ValueAt n (FieldTypes (MessageName msg)) ~ a
+     , H.Index   n (FieldTypes (MessageName msg))
+     , H.Arity     (FieldTypes (MessageName msg))
+     )
+  => n
+  -> Get a
+  -> MutableMsg msg
+  -> Get (MutableMsg msg)
 {-# INLINE writeRequired #-}
-writeRequired _ getter st = do
+writeRequired n getter st = do
   a <- getter
   let go (MutableMsg marr ref) =
-        MutableMsg (marr >>= (\arr -> H.writeMutableHVec arr (H.natIdx (sing :: Sing n)) a >> return arr))
+        MutableMsg (marr >>= (\arr -> H.writeMutableHVec arr n a >> return arr))
                    ref
   return $ go st
 
 -- | Write optional field into accumulator
-writeOptional :: forall n a msg. ( H.ValueAt (H.ToPeano n) (FieldTypes (MessageName msg)) ~ Maybe a
-                                 , H.NatIso  (H.ToPeano n) n
-                                 , SingI n
-                                 , F.Arity (H.ToPeano n))
-              => Sing n
-              -> Get a
-              -> MutableMsg msg
-              -> Get (MutableMsg msg)
+writeOptional
+  :: ( H.ValueAt n (FieldTypes (MessageName msg)) ~ Maybe a
+     , H.Index   n (FieldTypes (MessageName msg))
+     , H.Arity     (FieldTypes (MessageName msg))
+     )
+  => n
+  -> Get a
+  -> MutableMsg msg
+  -> Get (MutableMsg msg)
 {-# INLINE writeOptional #-}
-writeOptional _ getter st = do
+writeOptional n getter st = do
   a <- getter
   let go (MutableMsg marr ref) =
-        MutableMsg (marr >>= (\arr -> H.writeMutableHVec arr (H.natIdx (sing :: Sing n)) (Just a) >> return arr))
+        MutableMsg (marr >>= (\arr -> H.writeMutableHVec arr n (Just a) >> return arr))
                    ref
   return $ go st
 
 -- | Write repeated field into accumulator
-writeRepeated :: forall n a msg. ( H.ValueAt (H.ToPeano n) (FieldTypes (MessageName msg)) ~ Seq a
-                                 , H.NatIso  (H.ToPeano n) n
-                                 , SingI n
-                                 , F.Arity (H.ToPeano n))
-              => Sing n
-              -> Get a
-              -> MutableMsg msg
-              -> Get (MutableMsg msg)
+writeRepeated
+  :: ( H.ValueAt n (FieldTypes (MessageName msg)) ~ Seq a
+     , H.Index   n (FieldTypes (MessageName msg))
+     , H.Arity     (FieldTypes (MessageName msg))
+     )
+  => n
+  -> Get a
+  -> MutableMsg msg
+  -> Get (MutableMsg msg)
 {-# INLINE writeRepeated #-}
-writeRepeated _ getter st = do
+writeRepeated n getter st = do
   a <- getter
   let go (MutableMsg marr ref) =
-        MutableMsg (marr >>= (\arr -> H.modifyMutableHVec' arr (H.natIdx (sing :: Sing n)) (\sq -> sq |> a) >> return arr))
+        MutableMsg (marr >>= (\arr -> H.modifyMutableHVec' arr n (\sq -> sq |> a) >> return arr))
                    ref
   return $ go st
 
 
 -- | Write repeated field into accumulator
-writeRepeatedPacked :: forall n a msg. ( H.ValueAt (H.ToPeano n) (FieldTypes (MessageName msg)) ~ Seq a
-                                       , H.NatIso  (H.ToPeano n) n
-                                       , SingI n
-                                       , F.Arity (H.ToPeano n))
-                    => Sing n
-                    -> Get a
-                    -> MutableMsg msg
-                    -> Get (MutableMsg msg)
+writeRepeatedPacked
+  :: ( H.ValueAt n (FieldTypes (MessageName msg)) ~ Seq a
+     , H.Index   n (FieldTypes (MessageName msg))
+     , H.Arity     (FieldTypes (MessageName msg))
+     )
+  => n
+  -> Get a
+  -> MutableMsg msg
+  -> Get (MutableMsg msg)
 {-# INLINE writeRepeatedPacked #-}
-writeRepeatedPacked _ getter st = do
+writeRepeatedPacked n getter st = do
   a <- getPacked getter
   let go (MutableMsg marr ref) =
-        MutableMsg (marr >>= (\arr -> H.modifyMutableHVec' arr (H.natIdx (sing :: Sing n)) (\sq -> sq >< a) >> return arr))
+        MutableMsg (marr >>= (\arr -> H.modifyMutableHVec' arr n (\sq -> sq >< a) >> return arr))
                    ref
   return $ go st

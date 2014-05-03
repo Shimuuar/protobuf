@@ -30,10 +30,11 @@ import Language.Haskell.TH.Quote
 import qualified Language.Haskell.TH.Syntax as TH
 import GHC.TypeLits
 
+import Data.Vector.Fixed (S,Z)
 import qualified Data.Vector.HFixed as H
-import Data.Vector.HFixed      (HVector(..),elementTy)
+import Data.Vector.HFixed      (HVector(..),element)
 import Data.Vector.HFixed.Class(Fun(..))
-import Data.Vector.HFixed.HVec (HVec,newMutableHVec,writeMutableHVec,natIdx)
+import Data.Vector.HFixed.HVec (HVec,newMutableHVec,writeMutableHVec)
 
 import Data.Protobuf
 import Data.Protobuf.API
@@ -128,7 +129,7 @@ genInstance opts (PbMessage name fields) = do
       tellD1 $ do
         instanceD (return []) (conT ''Field `appT` msgNm `appT` strLit fld)
           [ tySynInstD ''FieldTy [msgNm, strLit fld] (return ty)
-          , varP 'fieldLens $= [| \_ _ -> $(varE 'elementTy `appE` singNat i) |]
+          , varP 'fieldLens $= [| \_ _ -> $(varE 'element `appE` singNat i) |]
           ]
     -- Instance for 'Protobuf' (serialization/deserialization)
     --
@@ -291,7 +292,7 @@ emptyVec fields = do
   doE $ concat
     [ [ bindS (varP hvec) [| newMutableHVec |] ]
     , map noBindS $ flip concatMap (zip [0..] fields) $ \(i, PbField modif name ty _ opts) ->
-       let n = [| natIdx $(singNat i) |]
+       let n = singNat i
        in case modif of
           Required -> []
           Repeated -> [ [| $(varE 'writeMutableHVec) $(varE hvec) $n $([|Seq.empty|]) |] ]
@@ -448,7 +449,7 @@ fieldWriter (TyEnum    _)       = 'putPbEnum
 ----------------------------------------------------------------
 
 singNat :: Integer -> ExpQ
-singNat i = [|sing :: Sing $(litT (numTyLit i))|]
+singNat i = [|undefined :: $(foldr appT (conT ''Z) (replicate (fromIntegral i) (conT ''S))) |]
 
 strLit :: String -> Q Type
 strLit = return . LitT . StrTyLit
