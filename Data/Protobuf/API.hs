@@ -102,23 +102,24 @@ class Field (msg :: Symbol) (fld :: Symbol) where
   type FieldTy msg fld :: *
   -- | Twan van Laarhoven lens for message.
   fieldLens :: (Functor f, FieldTy msg fld ~ a)
-            => Sing msg
-            -> Sing fld
+            => p msg
+            -> p fld
             -> (a -> f a)
             -> (Message msg -> f (Message msg))
 
 -- | Lens for field access
-field :: forall msg fld f a. ( Protobuf msg
-                             , Field (MessageName msg) fld
-                             , Functor f
-                             , FieldTy (MessageName msg) fld ~ a
-                             , SingI (MessageName msg)
-                             )
-      => Sing fld
+field :: forall p msg fld f a.
+         ( Protobuf msg
+         , Field (MessageName msg) fld
+         , Functor f
+         , FieldTy (MessageName msg) fld ~ a
+         , KnownSymbol (MessageName msg)
+         )
+      => p fld
       -> (a -> f a)
       -> (msg -> f msg)
 {-# INLINE field #-}
-field = fieldLens (sing :: Sing (MessageName msg))
+field = fieldLens (undefined :: p (MessageName msg))
 
 
 ----------------------------------------------------------------

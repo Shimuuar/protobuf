@@ -21,7 +21,7 @@ import Data.Text       (Text)
 import Data.List       (intercalate)
 import Data.ByteString (ByteString)
 import Data.Sequence   (Seq)
-import Data.Typeable   (Typeable)
+import Data.Typeable   (Typeable,Proxy(..))
 import qualified Data.Foldable as F
 import qualified Data.Sequence as Seq
 import Language.Haskell.TH
@@ -75,7 +75,7 @@ generateProtobuf opts incs fnames = do
 -- | Sugar for the field access
 elm :: QuasiQuoter
 elm = QuasiQuoter
-  { quoteExp  = \s -> (varE 'field) `appE` [| sing :: Sing $(litT (strTyLit s)) |]
+  { quoteExp  = \s -> (varE 'field) `appE` [| Proxy :: Proxy $(litT (strTyLit s)) |]
   , quotePat  = error "No pattern quasi quotation"
   , quoteType = error "No type quasi quotation"
   , quoteDec  = error "No declaration quasi quotation"
@@ -110,7 +110,7 @@ genInstance opts (PbMessage name fields) = do
             MessageExists ty -> return ty
     -- Type instance for 'FieldTypes'
     tellD1 $
-      tySynInstD ''FieldTypes [msgNm] (return fieldTypes)
+      tySynInstD ''FieldTypes $ tySynEqn [msgNm] (return fieldTypes)
     -- Generate Eq/Show instances
     case toGen of
       MessageExists _ -> return ()
@@ -133,7 +133,7 @@ genInstance opts (PbMessage name fields) = do
       --       See bug #4230 for discussion
       tellD1 $ do
         instanceD (return []) (conT ''Field `appT` msgNm `appT` strLit fld)
-          [ tySynInstD ''FieldTy [msgNm, strLit fld] (return ty)
+          [ tySynInstD ''FieldTy $ tySynEqn [msgNm, strLit fld] (return ty)
           , varP 'fieldLens $= [| \_ _ -> $(varE 'element `appE` singNat i) |]
           ]
     -- Instance for 'Protobuf' (serialization/deserialization)
@@ -142,7 +142,7 @@ genInstance opts (PbMessage name fields) = do
     deser <- lift $ deserializeDecl  name fields ty
     ser   <- lift $ serializtionDecl name fields
     tell [ InstanceD [] (ConT ''Protobuf `AppT` ty)
-             [ TySynInstD ''MessageName [ty] (qstrLit name) 
+             [ TySynInstD ''MessageName $ TySynEqn [ty] (qstrLit name) 
              , ValD (VarP 'serialize)    (NormalB $ ser  ) []
              , ValD (VarP 'getMessageST) (NormalB $ deser) []
              ]
@@ -158,7 +158,7 @@ genInstance _ (PbEnum name fields) = execWriterT $ do
       [ normalC (mkName c) [] | (_,c) <- fields ]
       [''Show,''Eq,''Ord]
   tellD1 $
-    tySynInstD ''MessageName [msgNm] (conT con)
+    tySynInstD ''MessageName $ tySynEqn [msgNm] (conT con)
   -- PbEnum instance
   let exprFrom = do
         a <- newName "a"
@@ -182,7 +182,7 @@ chooseGenerator :: String        -- Qualified message name
 chooseGenerator qualName opts = do
   -- Check that type instance for Message already defined
   FamilyI _ instances <- reify ''Message
-  let defined = [ty | TySynInstD _ [LitT (StrTyLit s)] ty <- instances
+  let defined = [ty | TySynInstD _ (TySynEqn [LitT (StrTyLit s)] ty) <- instances
                     , s == qualName
                 ]
   -- Check whether we need to generate data as haskell record
@@ -201,14 +201,14 @@ genMessageHVec msgNm name fieldTypes = do
   let con = mkName $ unqualifyWith '_' name
   tellD1 $ newtypeD (return []) con []
              (normalC con [return (NotStrict, ConT ''HVec `AppT` fieldTypes)]) [''Typeable]
-  tellD1 $ tySynInstD ''Message [msgNm] (conT con)
+  tellD1 $ tySynInstD ''Message $ tySynEqn [msgNm] (conT con)
   -- HVector instance for message
   v <- lift $ newName "v"
   f <- lift $ newName "f"
   -- Cannot use splices (GHC bug #4230)
   tellD1 $
     instanceD (return []) (conT ''HVector `appT` conT con)
-      [ tySynInstD ''Elems [conT con] (return fieldTypes)
+      [ tySynInstD ''Elems $ tySynEqn [conT con] (return fieldTypes)
       , varP 'construct $= [| fmap $(conE con) construct |]
       , varP 'inspect   $= lamE [conP con [varP v], varP f]
                              [| inspect $(varE v) $(varE f) |]
@@ -229,14 +229,14 @@ genMessageRec msgNm name tyFields fieldTypes = do
       con   = mkName $ case name of QName _ s -> s
   let flds = [return $ (mkName nm,IsStrict,ty) | (nm,ty) <- tyFields]
   tellD1 $ dataD (return []) conTy [] [recC con flds] [''Typeable]
-  tellD1 $ tySynInstD ''Message [msgNm] (conT conTy)
+  tellD1 $ tySynInstD ''Message $ tySynEqn [msgNm] (conT conTy)
   -- Derive HVector instance
   xs <- lift $ mapM newName ["x" | _ <- tyFields]
   f  <- lift $ newName "f"
   -- Cannot use splices (GHC bug #4230)
   tellD1 $
     instanceD (return []) (conT ''HVector `appT` conT conTy)
-      [ tySynInstD ''Elems [conT conTy] (return fieldTypes)
+      [ tySynInstD ''Elems $ tySynEqn [conT conTy] (return fieldTypes)
       , varP 'construct $= (conE 'Fun `appE` conE con)
       , varP 'inspect   $= ( lamE [ conP con  (map varP xs)
                                   , conP 'Fun [varP f]

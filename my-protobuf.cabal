@@ -1,5 +1,5 @@
 Name:           my-protobuf
-Version:        0.0.4.2
+Version:        0.0.5.0
 Cabal-Version:  >= 1.8
 License:        BSD3
 License-File:   LICENSE
@@ -20,7 +20,7 @@ Library
   Ghc-options:          -O2 -Wall
   Build-tools:          alex, happy
   Build-Depends:
-    base           >=3 && <5,
+    base           >=4.7 && <5,
     bytestring,
     containers,
     text,
@@ -30,7 +30,7 @@ Library
     uniplate,
     directory,
     array,
-    template-haskell >= 2.8,
+    template-haskell >= 2.9,
     groom,
     fixed-vector        >= 0.6.4,
     fixed-vector-hetero >= 0.1
